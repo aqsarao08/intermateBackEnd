@@ -4,6 +4,7 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
+    "mongo:start": "powershell -ExecutionPolicy Bypass -File scripts\\start-local-mongo.ps1",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "microservice:dev": "microservice\\.venv\\Scripts\\python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload --app-dir microservice",

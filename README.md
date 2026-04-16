@@ -10,3 +10,12 @@ If you use:
 - MongoDB Atlas: replace `MONGODB_URI` with your `mongodb+srv://...` connection string.
 
 If MongoDB is not running, the API will fail at startup because it connects before starting Express.
+
+### Starting local MongoDB on this machine
+
+This repo includes a dev helper that starts `mongod.exe` against a writable project-local data directory instead of the broken Windows service config:
+
+```powershell
+npm run mongo:start
+npm run dev
+```
