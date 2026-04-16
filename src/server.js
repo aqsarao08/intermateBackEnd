@@ -41,7 +41,16 @@ app.get("/health", (req, res) => {
 const PORT = process.env.PORT || 4000;
 
 connectDB(process.env.MONGODB_URI).then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 API server running on http://localhost:${PORT}`);
+  const server = app.listen(PORT, () => {
+    console.log(`API server running on http://localhost:${PORT}`);
+  });
+
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`Port ${PORT} is already in use. Stop the existing process or change PORT in .env.`);
+      return;
+    }
+
+    console.error("Server startup error:", err.message);
   });
 });
