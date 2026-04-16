@@ -75,4 +75,46 @@ def extract_skills(text: str) -> List[str]:
 
     phrase_patterns = [
         r"\bfront[\s-]?end\b",
-        r"\
+        r"\bback[\s-]?end\b",
+        r"\bfull[\s-]?stack\b",
+        r"\bstate management\b",
+        r"\bcomponent architecture\b",
+        r"\bperformance optimization\b",
+        r"\bapi integration\b",
+        r"\bresponsive design\b",
+        r"\bresponsive ui\b",
+        r"\bweb accessibility\b",
+        r"\bcross-browser compatibility\b",
+        r"\bhooks\b",
+        r"\bcustom hooks\b",
+        r"\bcontext api\b",
+        r"\bdesign systems?\b",
+        r"\bdata fetching\b",
+        r"\blazy loading\b",
+        r"\bcode splitting\b",
+        r"\bform validation\b",
+        r"\bclient-side routing\b",
+    ]
+    for pattern in phrase_patterns:
+        for match in re.findall(pattern, lowered, flags=re.I):
+            found.add(canonicalize(match))
+
+    doc = get_nlp()(text)
+    for chunk in doc.noun_chunks:
+        candidate = canonicalize(chunk.text)
+        if candidate in FLAT_SKILLS:
+            found.add(candidate)
+
+    for ent in doc.ents:
+        candidate = canonicalize(ent.text)
+        if candidate in FLAT_SKILLS:
+            found.add(candidate)
+
+    return sorted(found)
+
+
+def group_skills(skills: List[str]) -> Dict[str, List[str]]:
+    groups = defaultdict(list)
+    for skill in sorted({canonicalize(skill) for skill in skills}):
+        groups[categorize_skill(skill)].append(skill)
+    return dict(groups)

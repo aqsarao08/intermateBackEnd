@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -64,6 +64,16 @@ class ImprovementSuggestion(BaseModel):
     text: str
 
 
+class LLMGenerationPayload(BaseModel):
+    bullet_rewrites: List[BulletRewrite] = Field(default_factory=list)
+    optimized_summary: str = ""
+    structure_suggestions: List[str] = Field(default_factory=list)
+    improvement_suggestions: List[ImprovementSuggestion] = Field(default_factory=list)
+    strengths: List[str] = Field(default_factory=list)
+    weaknesses: List[str] = Field(default_factory=list)
+    ats_suggestions: List[str] = Field(default_factory=list)
+
+
 class AnalysisMeta(BaseModel):
     parser_used: str
     jd_parser_used: str
@@ -104,3 +114,109 @@ class AnalyzeResponse(BaseModel):
 class AnalyzeTextRequest(BaseModel):
     resume_text: str
     jd_text: str
+
+
+SeverityLevel = Literal["high", "medium", "low"]
+UrgencyLevel = Literal["high", "medium", "low"]
+LearningStatus = Literal["not_started", "in_progress", "completed", "needs_review"]
+WeaknessCategory = Literal[
+    "frontend",
+    "backend",
+    "databases",
+    "dsa",
+    "system_design",
+    "cloud_devops",
+    "testing",
+    "behavioral",
+    "cs_fundamentals",
+    "general",
+]
+SignalSourceType = Literal[
+    "resume_jd_gap",
+    "resume_analysis",
+    "interview_feedback",
+    "quiz_result",
+    "coding_lab_result",
+    "manual_input",
+]
+SignalType = Literal["missing", "weak", "failed", "partial", "low_confidence", "improvement_needed"]
+
+
+class SourceSignalInput(BaseModel):
+    source_type: SignalSourceType
+    source_id: str = ""
+    category: Optional[WeaknessCategory] = None
+    skill: str
+    signal_type: SignalType
+    weight: float = 0.5
+    confidence: float = 0.7
+    role_relevance: float = 0.7
+    evidence: str = ""
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class LearningWeakness(BaseModel):
+    key: str
+    category: WeaknessCategory
+    label: str
+    severity: SeverityLevel
+    urgency: UrgencyLevel
+    confidence: float
+    role_relevance: float
+    score: float
+    source_signals: List[SourceSignalInput] = Field(default_factory=list)
+    missing_skills: List[str] = Field(default_factory=list)
+    explanation: str = ""
+
+
+class LearningObjectiveDTO(BaseModel):
+    id: str
+    title: str
+    category: WeaknessCategory
+    priority: PriorityLevel
+    linked_weakness_keys: List[str] = Field(default_factory=list)
+    success_criteria: List[str] = Field(default_factory=list)
+
+
+class LearningModuleDTO(BaseModel):
+    id: str
+    title: str
+    objective: str
+    why_it_matters: str
+    category: WeaknessCategory
+    priority: PriorityLevel
+    estimated_minutes: int
+    prerequisites: List[str] = Field(default_factory=list)
+    outcomes: List[str] = Field(default_factory=list)
+    status: LearningStatus = "not_started"
+    order_index: int = 0
+    resources: List[Dict[str, str]] = Field(default_factory=list)
+
+
+class LearningProgressDTO(BaseModel):
+    completed_modules: int = 0
+    total_modules: int = 0
+    readiness_score: int = 0
+    next_best_actions: List[str] = Field(default_factory=list)
+
+
+class LearningPlanRequest(BaseModel):
+    project_id: str
+    target_role: str = ""
+    jd_text: str = ""
+    resume_analysis: Dict[str, Any] = Field(default_factory=dict)
+    interview_feedback: List[Dict[str, Any]] = Field(default_factory=list)
+    quiz_results: List[Dict[str, Any]] = Field(default_factory=list)
+    coding_lab_results: List[Dict[str, Any]] = Field(default_factory=list)
+    additional_signals: List[SourceSignalInput] = Field(default_factory=list)
+
+
+class LearningPlanResponse(BaseModel):
+    project_id: str
+    target_role: str
+    role_focus: WeaknessCategory | Literal["general"] = "general"
+    weaknesses: List[LearningWeakness] = Field(default_factory=list)
+    objectives: List[LearningObjectiveDTO] = Field(default_factory=list)
+    modules: List[LearningModuleDTO] = Field(default_factory=list)
+    progress: LearningProgressDTO = Field(default_factory=LearningProgressDTO)
+    normalized_signals: List[SourceSignalInput] = Field(default_factory=list)

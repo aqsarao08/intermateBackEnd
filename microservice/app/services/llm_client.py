@@ -1,10 +1,17 @@
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Type
+
+from pydantic import BaseModel
 
 from app.core.config import get_settings
 
 
-def request_json(system_prompt: str, user_prompt: str, max_tokens: int = 1200) -> Dict[str, Any]:
+def request_json(
+    system_prompt: str,
+    user_prompt: str,
+    max_tokens: int = 1200,
+    response_model: Type[BaseModel] | None = None,
+) -> Dict[str, Any]:
     settings = get_settings()
     provider = settings.llm_provider.lower()
 
@@ -15,15 +22,27 @@ def request_json(system_prompt: str, user_prompt: str, max_tokens: int = 1200) -
         from openai import OpenAI
 
         client = OpenAI(api_key=settings.openai_api_key)
-        response = client.responses.create(
-            model=settings.openai_model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.2,
-        )
-        raw_text = response.output_text
+        input_messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        if response_model and hasattr(client.responses, "parse"):
+            response = client.responses.parse(
+                model=settings.openai_model,
+                input=input_messages,
+                text_format=response_model,
+            )
+            parsed = getattr(response, "output_parsed", None)
+            if parsed is not None:
+                return parsed.model_dump()
+            raw_text = response.output_text
+        else:
+            response = client.responses.create(
+                model=settings.openai_model,
+                input=input_messages,
+                temperature=0.2,
+            )
+            raw_text = response.output_text
     elif provider == "anthropic":
         import anthropic
 
@@ -40,4 +59,6 @@ def request_json(system_prompt: str, user_prompt: str, max_tokens: int = 1200) -
         return {}
 
     cleaned = raw_text.replace("```json", "").replace("```", "").strip()
+    if response_model:
+        return response_model.model_validate_json(cleaned).model_dump()
     return json.loads(cleaned)

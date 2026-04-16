@@ -140,4 +140,25 @@ def extract_jd_requirements(jd_text: str) -> Dict[str, List[str] | Dict[str, Lis
             else:
                 responsibilities.append(sentence)
 
-    all_
+    all_skills = extract_ranked_phrases(jd_text, role_focus)
+    if not required:
+        required.update(all_skills[: min(8, len(all_skills))])
+    else:
+        required = set(sorted(required, key=lambda skill: all_skills.index(skill) if skill in all_skills else 999))
+
+    domain_terms = [skill for skill in all_skills if canonicalize(skill) not in required | preferred]
+    grouped = group_skills(all_skills)
+    skill_context = build_skill_context_map(jd_text, all_skills)
+
+    return {
+        "required_skills": sorted(required),
+        "preferred_skills": sorted(preferred - required),
+        "all_skills": all_skills,
+        "responsibilities": responsibilities[:10],
+        "qualifications": qualifications[:10],
+        "domain_terms": domain_terms[:10],
+        "skill_groups": grouped,
+        "skill_context": skill_context,
+        "role_focus": role_focus,
+        "sectioned_lines": sections,
+    }

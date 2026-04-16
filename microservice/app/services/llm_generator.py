@@ -1,5 +1,6 @@
 from typing import Dict, List
 
+from app.models.schemas import LLMGenerationPayload
 from app.services.llm_client import request_json
 
 
@@ -68,4 +69,27 @@ Role focus:
 {role_focus}
 
 Return JSON with keys:
-- bullet_rewrites: array of objects {{original_bul
+- bullet_rewrites: array of objects {{original_bullet, rewritten_bullet, reason}}
+- optimized_summary: string
+- structure_suggestions: string[]
+- improvement_suggestions: array of objects {{section, priority, text}}
+- strengths: string[]
+- weaknesses: string[]
+- ats_suggestions: string[]
+
+Rules:
+- Mention the actual missing skills from the job.
+- Cite the JD language directly inside the reasoning when possible, especially for summary, skills, and project advice.
+- If the role is frontend, be specific about React/frontend expectations like component architecture, state management, API integration, performance, testing, accessibility, and responsive UI when relevant.
+- Project suggestions and improvement suggestions must explain what to add and why it matters for this exact JD.
+- Do not give generic phrases like 'tailor your summary' without saying what should be added.
+- For bullet_rewrites, preserve truthfulness and only strengthen wording around already evidenced work.
+- For improvement_suggestions, explicitly say which JD requirement or responsibility the suggestion is trying to satisfy.
+"""
+
+    return request_json(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        max_tokens=1800,
+        response_model=LLMGenerationPayload,
+    )

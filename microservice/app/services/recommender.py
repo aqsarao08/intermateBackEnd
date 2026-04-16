@@ -94,4 +94,77 @@ def build_skill_recommendations(
     recommendations = []
     for skill in missing_skills:
         priority = determine_priority(skill, required_skills, preferred_skills)
-        evidence = evidence_map.get(skill, [
+        evidence = evidence_map.get(skill, [])
+        action_label = determine_action_label(skill, evidence, priority)
+        where_to_appear = "projects" if action_label == "Build project first" else "skills"
+        context = skill_context.get(skill, "")
+        recommendations.append({
+            "skill": skill,
+            "category": categorize_skill(skill),
+            "priority": priority,
+            "reason": context or ("Explicitly required in the JD" if skill in required_skills else "Helpful supporting skill from the JD"),
+            "action_label": action_label,
+            "why_it_matters": context or f"{skill} appears in the target role and improves direct job fit.",
+            "where_to_appear": where_to_appear,
+            "evidence": evidence,
+            "can_add_now": bool(evidence),
+        })
+    return recommendations
+
+
+def build_resume_action_plan(skill_recommendations: List[Dict[str, object]]) -> List[Dict[str, str]]:
+    plan = []
+    for recommendation in skill_recommendations[:5]:
+        plan.append({
+            "priority": recommendation["priority"],
+            "action": f"{recommendation['action_label']}: {recommendation['skill']} in the {recommendation['where_to_appear']} section",
+            "rationale": str(recommendation["why_it_matters"]),
+        })
+    return plan
+
+
+def build_project_suggestions(skill_recommendations: List[Dict[str, object]], role_focus: str = "general") -> List[Dict[str, object]]:
+    role_templates = {
+        "frontend": {
+            "title_suffix": "frontend portfolio project",
+            "description": "Build a React app with reusable components, routing, API integration, loading/error states, and responsive UI. Add authentication, filtering, dashboards, and performance optimizations so the project proves production-style frontend skills.",
+            "role_fit": "Frontend / React",
+        },
+        "backend": {
+            "title_suffix": "backend systems project",
+            "description": "Build a service-oriented API project with authentication, validation, database persistence, testing, and deployment. Include documentation, error handling, and at least one scaling or background-processing concern.",
+            "role_fit": "Backend / API",
+        },
+        "fullstack": {
+            "title_suffix": "full-stack showcase app",
+            "description": "Build an end-to-end app with a modern frontend, secure backend API, database layer, authentication, and deployment workflow. Show real user flows, dashboards, and measurable product outcomes.",
+            "role_fit": "Full-stack",
+        },
+        "general": {
+            "title_suffix": "showcase project",
+            "description": "Build a production-style project that demonstrates the missing job requirements with a clean architecture, measurable features, and polished resume-ready outcomes.",
+            "role_fit": "Software Engineering",
+        },
+    }
+    template = role_templates.get(role_focus, role_templates["general"])
+    suggestions = []
+    for recommendation in skill_recommendations:
+        if recommendation["action_label"] != "Build project first":
+            continue
+        skill = recommendation["skill"]
+        blueprint = SKILL_PROJECT_BLUEPRINTS.get(skill, {})
+        title = blueprint.get("title", f"{skill.title()} {template['title_suffix']}")
+        description = blueprint.get("description", template["description"])
+        covered_skills = blueprint.get("skills", [skill])
+        suggestions.append({
+            "title": title,
+            "why_it_helps": f"Creates portfolio proof for {skill} and turns this JD gap into visible evidence.",
+            "description": f"{description} Make {skill} a visible part of the implementation, bullet points, and README.",
+            "skills_covered": covered_skills,
+            "role_fit": template["role_fit"],
+            "resume_value": f"Turns {skill} from a keyword gap into credible project evidence.",
+            "difficulty": "intermediate",
+        })
+        if len(suggestions) == 3:
+            break
+    return suggestions
