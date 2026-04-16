@@ -5,19 +5,26 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "microservice:dev": "microservice\\.venv\\Scripts\\python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload --app-dir microservice",
+    "microservice:start": "microservice\\.venv\\Scripts\\python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --app-dir microservice"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.89.0",
     "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.0",
-    "express": "^4.19.0",
-    "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "form-data": "^4.0.5",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.23.0",
     "morgan": "^1.10.0",
+    "multer": "^2.1.1",
+    "nodemailer": "^8.0.5",
+    "pdf-parse": "^2.4.5",
     "pdfkit": "^0.13.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.0"
+    "nodemon": "^3.1.14"
   }
 }

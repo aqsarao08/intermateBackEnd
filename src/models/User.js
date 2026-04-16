@@ -18,16 +18,25 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    role: { type: String, default: "" },        // e.g. "Student", "Junior Developer"
-    targetRole: { type: String, default: "" },  // optional, you already use this in UI
-    location: { type: String, default: "" },    // e.g. "Lahore, PK"
-    education: { type: String, default: "" },
+    role: {
+      type: String,
+      default: "",
+    },
+    targetRole: {
+      type: String,
+      default: "",
+    },
+    location: {
+      type: String,
+      default: "",
+    },
+    education: {
+      type: String,
+      default: "",
+    },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
-
 
 const User = mongoose.model("User", userSchema);
 

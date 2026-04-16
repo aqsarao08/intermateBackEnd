@@ -1,140 +1,140 @@
-// src/routes/auth.js
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { requireAuth } from "../middleware/auth.js";
+import { sendWelcomeEmail } from "../utils/sendWelcomeEmail.js";
 
 const router = express.Router();
 
-// POST /api/auth/signup
+function createToken(user) {
+  return jwt.sign(
+    {
+      userId: user._id.toString(),
+      email: user.email,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+}
+
+function buildUser(user) {
+  return {
+    id: user._id.toString(),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    targetRole: user.targetRole,
+    location: user.location,
+    education: user.education,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+// SIGNUP
 router.post("/signup", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
+    const trimmedName = String(name || "").trim();
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const rawPassword = String(password || "");
+
+    if (!trimmedName || !normalizedEmail || !rawPassword) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // check if user exists
-    const existing = await User.findOne({ email });
-    if (existing) {
+    if (trimmedName.length < 2) {
+      return res.status(400).json({ message: "Name must be at least 2 characters" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ message: "Please enter a valid email" });
+    }
+
+    if (rawPassword.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
       return res.status(409).json({ message: "Email already registered" });
     }
 
-    // hash password
-    const hashed = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
 
     const user = await User.create({
-      name,
-      email,
-      passwordHash: hashed,
+      name: trimmedName,
+      email: normalizedEmail,
+      passwordHash,
     });
 
-    // issue JWT
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    res.status(201).json({
-      message: "User created",
-      token,
-      user: {
-        id: user._id,
+    try {
+      await sendWelcomeEmail({
+        to: user.email,
         name: user.name,
-        email: user.email,
-      },
+      });
+    } catch (emailError) {
+      console.error("Welcome email error:", emailError.message);
+    }
+
+    return res.status(201).json({
+      message: "Signup successful. Please log in.",
     });
-  } catch (err) {
-    console.error("Signup error:", err.message);
-    res.status(500).json({ message: "Server error" });
+  } catch (error) {
+    console.error("Signup error:", error);
+    return res.status(500).json({ message: "Server error during signup" });
   }
 });
 
-// POST /api/auth/login
+// LOGIN
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const normalizedEmail = String(req.body.email || "").trim().toLowerCase();
+    const rawPassword = String(req.body.password || "");
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required" });
+    if (!normalizedEmail || !rawPassword) {
+      return res.status(400).json({ message: "Email and password are required" });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) {
+    const isMatch = await bcrypt.compare(rawPassword, user.passwordHash);
+    if (!isMatch) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = createToken(user);
 
-    res.json({
-      message: "Logged in",
+    return res.status(200).json({
+      message: "Login successful",
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-      },
+      user: buildUser(user),
     });
-  } catch (err) {
-    console.error("Login error:", err.message);
-    res.status(500).json({ message: "Server error" });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ message: "Server error during login" });
   }
 });
 
-
+// GET CURRENT USER
 router.get("/me", requireAuth, async (req, res) => {
   try {
-    
     const user = await User.findById(req.user.userId).select("-passwordHash");
 
     if (!user) {
-      return res.status(404).json({ message: "User not found." });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    res.json(user);
-  } catch (err) {
-    console.error("Auth /me error", err);
-    res.status(500).json({ message: "Server error." });
-  }
-});
-
-// UPDATE PROFILE
-router.put("/me", requireAuth, async (req, res) => {
-  try {
-    const { role, targetRole, location, education } = req.body;
-
-    const update = {};
-    if (typeof role === "string") update.role = role;
-    if (typeof targetRole === "string") update.targetRole = targetRole;
-    if (typeof location === "string") update.location = location;
-    if (typeof education === "string") update.education = education;
-
-    const user = await User.findByIdAndUpdate(
-      req.user.userId,       // from JWT (make sure your token stores userId)
-      { $set: update },
-      { new: true }          
-    ).select("-passwordHash");
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found." });
-    }
-
-    res.json(user);
-  } catch (err) {
-    console.error("Auth /me PUT error", err);
-    res.status(500).json({ message: "Server error." });
+    return res.status(200).json(buildUser(user));
+  } catch (error) {
+    console.error("Get me error:", error);
+    return res.status(500).json({ message: "Server error while getting profile" });
   }
 });
 
