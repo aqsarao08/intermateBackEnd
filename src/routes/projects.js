@@ -5,6 +5,7 @@
 
 import express from "express";
 import multer from "multer";
+import mongoose from "mongoose";
 import Project from "../models/Project.js";
 import { requireAuth } from "../middleware/auth.js";
 import { analyzeDocuments, analyzeStoredTexts } from "../utils/resumeAnalyzerClient.js";
@@ -90,7 +91,10 @@ router.get("/", requireAuth, async (req, res) => {
     const projects = await Project.find({
       userId: req.user.userId,
       status: "active",
-    }).sort({ updatedAt: -1 });
+    })
+      .select("-resumeText -jobDescription -aiInsights.bulletRewrites -aiInsights.skillRecommendations -aiInsights.suggestedProjects -aiInsights.projectSuggestions -aiInsights.improvementSuggestions -aiInsights.resumeActionPlan -aiInsights.atsSuggestions -aiInsights.structureSuggestions -aiInsights.missingSkillGroups -aiInsights.analysisMeta -aiInsights.topicWeaknessMap")
+      .sort({ updatedAt: -1 })
+      .lean();
 
     return res.status(200).json(projects.map(buildProject));
   } catch (error) {
@@ -100,12 +104,15 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 router.get("/:id", requireAuth, async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: "Invalid project ID" });
+  }
   try {
     const project = await Project.findOne({
       _id: req.params.id,
       userId: req.user.userId,
       status: "active",
-    });
+    }).lean();
 
     if (!project) {
       return res.status(404).json({ message: "Project not found" });

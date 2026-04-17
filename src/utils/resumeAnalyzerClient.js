@@ -66,13 +66,18 @@ export async function analyzeDocuments({ resumeFile, jdFile, jdText }) {
   const response = await fetch(`${ANALYZER_URL}/analyze`, {
     method: "POST",
     headers: form.getHeaders(),
-    body: form,
+    body: form.getBuffer(),
   });
 
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(`Resume analyzer error ${response.status}: ${await response.text().catch(() => "no details")}`);
+  }
 
   if (!response.ok) {
-    throw new Error(data.detail || data.message || "Resume analyzer service failed");
+    throw new Error(data.detail || data.message || `Resume analyzer service failed (${response.status})`);
   }
 
   return normalizeAnalysis(data);
@@ -88,10 +93,15 @@ export async function analyzeStoredTexts({ resumeText, jdText }) {
     }),
   });
 
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(`Resume analyzer error ${response.status}: ${await response.text().catch(() => "no details")}`);
+  }
 
   if (!response.ok) {
-    throw new Error(data.detail || data.message || "Resume analyzer text analysis failed");
+    throw new Error(data.detail || data.message || `Resume analyzer text analysis failed (${response.status})`);
   }
 
   return normalizeAnalysis(data);

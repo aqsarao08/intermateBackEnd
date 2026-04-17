@@ -114,4 +114,8 @@ docker-compose.override.yml
 *.patch
 .sass-cache/
 .connect_deps/
-.venv
+.venv/
+microservice/.venv/
+__pycache__/
+*.pyc
+*.pyo
