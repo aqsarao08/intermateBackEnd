@@ -1,2 +1,119 @@
-mongo-local/data/
-mongo-local/log/
+# ========================
+# Dependencies
+# ========================
+node_modules/
+bower_components/
+jspm_packages/
+.pnp/
+.pnp.js
+
+# ========================
+# Environment Variables
+# ========================
+.env
+.env.*
+!.env.example
+
+# ========================
+# Build / Output
+# ========================
+dist/
+build/
+out/
+tmp/
+temp/
+.cache/
+
+# ========================
+# Logs
+# ========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ========================
+# OS Generated Files
+# ========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ========================
+# IDE / Editors
+# ========================
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ========================
+# Package Manager Locks (optional, uncomment if needed)
+# ========================
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ========================
+# Testing / Coverage
+# ========================
+coverage/
+.nyc_output/
+*.lcov
+.jest/
+
+# ========================
+# Runtime / Process
+# ========================
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ========================
+# TypeScript
+# ========================
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ========================
+# Debug
+# ========================
+.node_repl_history
+.eslintcache
+.stylelintcache
+
+# ========================
+# Docker (if used later)
+# ========================
+docker-compose.override.yml
+
+# ========================
+# Miscellaneous
+# ========================
+*.pem
+*.key
+*.cert
+*.bak
+*.orig
+*.patch
+.sass-cache/
+.connect_deps/
+.venv

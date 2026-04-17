@@ -15,10 +15,34 @@ import peerReviewRoutes from "./routes/peerReviews.js";
 dotenv.config();
 
 const app = express();
+const defaultClientOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
+const configuredClientOrigins = [
+  process.env.CLIENT_URL,
+  process.env.CLIENT_URLS,
+]
+  .filter(Boolean)
+  .flatMap((value) => value.split(","))
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+const allowedOrigins = [...new Set([...defaultClientOrigins, ...configuredClientOrigins])];
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin(origin, callback) {
+      // Allow non-browser tools and same-machine server calls without an Origin header.
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
   })
 );
