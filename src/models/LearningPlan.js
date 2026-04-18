@@ -45,24 +45,68 @@ const objectiveSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const quizQuestionSchema = new mongoose.Schema(
+  {
+    id:           { type: String, required: true },
+    question:     { type: String, default: "" },
+    options:      { type: [String], default: [] },
+    correctIndex: { type: Number, default: 0 },
+    explanation:  { type: String, default: "" },
+    difficulty:   { type: String, enum: ["easy", "medium", "hard"], default: "medium" },
+  },
+  { _id: false }
+);
+
+const quizAttemptSchema = new mongoose.Schema(
+  {
+    attemptedAt: { type: Date, default: Date.now },
+    score:       { type: Number, default: 0 },
+    answers:     { type: [Number], default: [] },
+    passed:      { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const resourceSchema = new mongoose.Schema(
+  {
+    label:    { type: String, default: "" },
+    url:      { type: String, default: "" },
+    platform: { type: String, default: "" },
+    type:     { type: String, enum: ["docs", "video", "course", "practice", "article"], default: "article" },
+  },
+  { _id: false }
+);
+
 const moduleSchema = new mongoose.Schema(
   {
-    id: { type: String, required: true },
-    title: { type: String, default: "" },
-    objective: { type: String, default: "" },
-    whyItMatters: { type: String, default: "" },
-    category: { type: String, default: "general" },
-    priority: { type: String, enum: ["high", "medium", "low"], default: "medium" },
+    id:               { type: String, required: true },
+    title:            { type: String, default: "" },
+    objective:        { type: String, default: "" },
+    whyItMatters:     { type: String, default: "" },
+    category:         { type: String, default: "general" },
+    priority:         { type: String, enum: ["high", "medium", "low"], default: "medium" },
     estimatedMinutes: { type: Number, default: 0 },
-    prerequisites: { type: [String], default: [] },
-    outcomes: { type: [String], default: [] },
+    prerequisites:    { type: [String], default: [] },
+    outcomes:         { type: [String], default: [] },
     status: {
       type: String,
       enum: ["not_started", "in_progress", "completed", "needs_review"],
       default: "not_started",
     },
-    orderIndex: { type: Number, default: 0 },
-    resources: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    orderIndex:    { type: Number, default: 0 },
+    resources:     { type: [resourceSchema], default: [] },
+    quiz:          { type: [quizQuestionSchema], default: [] },
+    quizAttempts:  { type: [quizAttemptSchema], default: [] },
+    bestQuizScore: { type: Number, default: null },
+    labSpec: {
+      title:         { type: String, default: "" },
+      description:   { type: String, default: "" },
+      starterPrompt: { type: String, default: "" },
+      difficulty:    { type: String, enum: ["easy", "medium", "hard"], default: "medium" },
+      platformHint:  { type: String, default: "" },
+      completed:     { type: Boolean, default: false },
+    },
+    enriched: { type: Boolean, default: false },
   },
   { _id: false }
 );

@@ -1,6 +1,7 @@
 import express from "express";
 import { requireAuth } from "../middleware/auth.js";
 import PeerReview from "../models/PeerReview.js";
+import { awardXP } from "../services/gamification.js";
 
 const router = express.Router();
 
@@ -10,12 +11,21 @@ router.post("/", requireAuth, async (req, res) => {
     const { targetUserId, recordingUrl, comments, rating } = req.body;
 
     const review = await PeerReview.create({
-      author: req.user._id,
+      author: req.user.userId,
       target: targetUserId,
       recordingUrl,
       comments,
       rating,
     });
+
+    // Award XP to reviewer (min 50 chars to prevent spam)
+    if ((comments || "").trim().length >= 50) {
+      awardXP(req.user.userId, "peer_review_given", { reviewId: String(review._id) }, "Submitted peer review").catch(() => {});
+    }
+    // Award XP to the person who received the review
+    if (targetUserId) {
+      awardXP(targetUserId, "peer_review_received", { reviewId: String(review._id) }, "Received a peer review").catch(() => {});
+    }
 
     res.status(201).json(review);
   } catch (err) {

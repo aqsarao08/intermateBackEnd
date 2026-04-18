@@ -49,8 +49,14 @@ def slugify(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", canonicalize(value)).strip("_") or "general"
 
 
+VALID_CATEGORIES = frozenset(
+    ["frontend", "backend", "databases", "dsa", "system_design",
+     "cloud_devops", "testing", "behavioral", "cs_fundamentals", "general"]
+)
+
+
 def infer_category(skill: str, explicit_category: str | None = None) -> str:
-    if explicit_category:
+    if explicit_category and explicit_category in VALID_CATEGORIES:
         return explicit_category
     lowered = canonicalize(skill)
     for category, keywords in CATEGORY_RULES.items():

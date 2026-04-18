@@ -9,6 +9,7 @@ import mongoose from "mongoose";
 import Project from "../models/Project.js";
 import { requireAuth } from "../middleware/auth.js";
 import { analyzeDocuments, analyzeStoredTexts } from "../utils/resumeAnalyzerClient.js";
+import { awardXP } from "../services/gamification.js";
 
 const router = express.Router();
 
@@ -156,6 +157,11 @@ router.post("/", requireAuth, upload.single("resume"), async (req, res) => {
         updatedAt: new Date(),
       },
     });
+
+    awardXP(req.user.userId, "project_create", { projectId: String(project._id) }, "Created a job project").catch(() => {});
+    // Also award for initial resume upload + ATS score
+    const newAtsScore = project.aiInsights?.atsScore || 0;
+    awardXP(req.user.userId, "resume_upload", { newAtsScore, previousAtsScore: 0, resourceId: `resume:${project._id}:${new Date().toISOString().slice(0, 10)}` }, "Resume uploaded with project").catch(() => {});
 
     return res.status(201).json({
       message: "Project created successfully",

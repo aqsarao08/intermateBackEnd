@@ -211,6 +211,29 @@ class LearningPlanRequest(BaseModel):
     additional_signals: List[SourceSignalInput] = Field(default_factory=list)
 
 
+class QuizQuestion(BaseModel):
+    id: str
+    question: str
+    options: List[str]
+    correct_index: int
+    explanation: str
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+
+
+class QuizGenerateRequest(BaseModel):
+    module_id: str
+    skill: str
+    category: str = "general"
+    target_role: str = ""
+    severity: Literal["high", "medium", "low"] = "medium"
+    num_questions: int = 5
+
+
+class QuizGenerateResponse(BaseModel):
+    module_id: str
+    questions: List[QuizQuestion]
+
+
 class LearningPlanResponse(BaseModel):
     project_id: str
     target_role: str

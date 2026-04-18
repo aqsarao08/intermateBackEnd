@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.analyze import router as analyze_router
+from app.api.routes.interview import router as interview_router
 from app.api.routes.learning import router as learning_router
 from app.core.config import get_settings
 
@@ -16,6 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(analyze_router)
+app.include_router(interview_router)
 app.include_router(learning_router)
 
 

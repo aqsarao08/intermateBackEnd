@@ -1,12 +1,38 @@
 import mongoose from "mongoose";
 
+const dimensionSchema = new mongoose.Schema(
+  {
+    relevance:     { type: Number, default: 0 },
+    structure:     { type: Number, default: 0 },
+    depth:         { type: Number, default: 0 },
+    communication: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
 const questionSchema = new mongoose.Schema(
   {
-    question: String,
-    orderIndex: Number,
-    userAnswer: { type: String, default: "" },
-    aiFeedback: { type: String, default: "" },
-    score: { type: Number, default: 0 },
+    question:    { type: String, default: "" },
+    type:        { type: String, default: "behavioral" }, // behavioral | technical | situational | motivational
+    targetSkill: { type: String, default: "" },
+    isFollowup:  { type: Boolean, default: false },
+    orderIndex:  { type: Number, default: 0 },
+    userAnswer:  { type: String, default: "" },
+    aiFeedback:  { type: String, default: "" },
+    strength:    { type: String, default: "" },
+    improvement: { type: String, default: "" },
+    score:       { type: Number, default: 0 },
+    dimensions:  { type: dimensionSchema, default: () => ({}) },
+  },
+  { _id: false }
+);
+
+const reportSchema = new mongoose.Schema(
+  {
+    strengths:          { type: [String], default: [] },
+    improvements:       { type: [String], default: [] },
+    suggestedResources: { type: [String], default: [] },
+    recommendation:     { type: String, default: "" },
   },
   { _id: false }
 );
@@ -25,34 +51,16 @@ const interviewSessionSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    role: {
-      type: String,
-      default: "",
-    },
-    title: {
-      type: String,
-      default: "Mock Interview",
-    },
-    questions: {
-      type: [questionSchema],
-      default: [],
-    },
-    overallScore: {
-      type: Number,
-      default: 0,
-    },
-    startedAt: {
-      type: Date,
-      default: Date.now,
-    },
-    completedAt: {
-      type: Date,
-      default: null,
-    },
-    isPublic: {
-      type: Boolean,
-      default: false,
-    },
+    role:         { type: String, default: "" },
+    title:        { type: String, default: "Mock Interview" },
+    persona: { type: String, enum: ["friendly", "strict", "technical", "behavioral", "mixed"], default: "mixed" },
+    questions:    { type: [questionSchema], default: [] },
+    overallScore:  { type: Number, default: 0 },
+    followupCount: { type: Number, default: 0 },
+    report:        { type: reportSchema, default: () => ({}) },
+    startedAt:    { type: Date, default: Date.now },
+    completedAt:  { type: Date, default: null },
+    isPublic:     { type: Boolean, default: false },
   },
   { timestamps: true }
 );

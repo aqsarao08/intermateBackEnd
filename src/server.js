@@ -11,6 +11,7 @@ import projectResumeRoutes from "./routes/projectResume.js";
 import projectLearningRoutes from "./routes/projectLearning.js";
 import careerQuestRoutes from "./routes/careerQuest.js";
 import peerReviewRoutes from "./routes/peerReviews.js";
+import gamificationRoutes from "./routes/gamification.js";
 
 dotenv.config();
 
@@ -57,6 +58,7 @@ app.use("/api/projects", projectResumeRoutes);
 app.use("/api/projects", projectLearningRoutes);
 app.use("/api/career-quest", careerQuestRoutes);
 app.use("/api/peer-reviews", peerReviewRoutes);
+app.use("/api/gamification", gamificationRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });

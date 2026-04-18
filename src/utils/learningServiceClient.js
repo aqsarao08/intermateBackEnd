@@ -82,6 +82,37 @@ function normalizePlan(payload = {}) {
   };
 }
 
+export async function generateQuiz({ moduleId, skill, category, targetRole, severity }) {
+  const response = await fetch(`${LEARNING_SERVICE_URL}/learning/generate-quiz`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      module_id: moduleId, skill, category,
+      target_role: targetRole, severity,
+    }),
+  });
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(`Learning service error ${response.status}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || "Quiz generation failed");
+  }
+
+  return (data.questions ?? []).map((q) => ({
+    id: q.id ?? "",
+    question: q.question ?? "",
+    options: q.options ?? [],
+    correctIndex: q.correct_index ?? q.correctIndex ?? 0,
+    explanation: q.explanation ?? "",
+    difficulty: q.difficulty ?? "medium",
+  }));
+}
+
 export async function generateLearningPlan(input) {
   const response = await fetch(`${LEARNING_SERVICE_URL}/learning/diagnose`, {
     method: "POST",

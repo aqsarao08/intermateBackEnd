@@ -8,6 +8,7 @@ import multer from "multer";
 import { requireAuth } from "../middleware/auth.js";
 import Project from "../models/Project.js";
 import { analyzeDocuments } from "../utils/resumeAnalyzerClient.js";
+import { awardXP } from "../services/gamification.js";
 
 const router = express.Router();
 
@@ -92,9 +93,18 @@ router.post("/:id/resume/upload", requireAuth, upload.single("resume"), async (r
       jdText: jobDescription,
     });
 
+    const previousAtsScore = project.aiInsights?.atsScore || 0;
     project.resumeText = analysisResult.resumeText || "";
     project.aiInsights = toAiInsights(analysisResult);
     await project.save();
+
+    const newAtsScore = analysisResult.atsScore || 0;
+    awardXP(
+      req.user.userId,
+      "resume_upload",
+      { newAtsScore, previousAtsScore, resourceId: `resume:${project._id}:${new Date().toISOString().slice(0, 10)}` },
+      "Resume uploaded and analysed"
+    ).catch(() => {});
 
     return res.status(200).json({
       message: "Resume analysed successfully",

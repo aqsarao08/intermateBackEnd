@@ -35,6 +35,17 @@ SKILL_TAXONOMY: Dict[str, List[str]] = {
 
 FLAT_SKILLS: Set[str] = {skill for skills in SKILL_TAXONOMY.values() for skill in skills}
 
+# Skills that are also common English words — only extract when they appear
+# capitalized in the ORIGINAL text (e.g. "Go" not "go", "R" not "r").
+CASE_SENSITIVE_SKILLS: Set[str] = {"go", "r", "c", "a"}
+
+# Pre-compile word-boundary patterns for every skill to avoid substring false positives.
+# "go" in "good" or "going" won't match \bgo\b.
+_SKILL_PATTERNS: Dict[str, re.Pattern] = {
+    skill: re.compile(r"\b" + re.escape(skill) + r"\b", re.IGNORECASE)
+    for skill in FLAT_SKILLS
+}
+
 
 @lru_cache(maxsize=1)
 def get_nlp():
@@ -71,7 +82,15 @@ def categorize_skill(skill: str) -> str:
 
 def extract_skills(text: str) -> List[str]:
     lowered = canonicalize(text)
-    found = {skill for skill in FLAT_SKILLS if skill in lowered}
+    found: Set[str] = set()
+    for skill, pattern in _SKILL_PATTERNS.items():
+        if skill in CASE_SENSITIVE_SKILLS:
+            # Require the original (pre-lower) text to have it capitalised
+            cap_pattern = re.compile(r"\b" + re.escape(skill.capitalize()) + r"\b")
+            if not cap_pattern.search(text):
+                continue
+        if pattern.search(lowered):
+            found.add(skill)
 
     phrase_patterns = [
         r"\bfront[\s-]?end\b",
