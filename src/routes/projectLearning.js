@@ -3,7 +3,12 @@ import { requireAuth } from "../middleware/auth.js";
 import Project from "../models/Project.js";
 import InterviewSession from "../models/InterviewSession.js";
 import LearningPlan from "../models/LearningPlan.js";
-import { generateLearningPlan, generateQuiz } from "../utils/learningServiceClient.js";
+import {
+  generateLearningPlan,
+  generateQuiz,
+  diagnoseQuizConcepts,
+  recommendProjects,
+} from "../utils/learningServiceClient.js";
 import { awardXP } from "../services/gamification.js";
 
 const router = express.Router();
@@ -223,7 +228,9 @@ router.get("/:id/learning/quiz/:moduleId", requireAuth, async (req, res) => {
       );
     }
 
-    const safe = questions.map(({ id, question, options, difficulty }) => ({ id, question, options, difficulty }));
+    const safe = questions.map(({ id, question, options, difficulty, conceptTested }) => ({
+      id, question, options, difficulty, conceptTested,
+    }));
     return res.json({ questions: safe, attemptCount: mod.quizAttempts.length, bestScore: mod.bestQuizScore });
   } catch (err) {
     console.error("Get quiz error:", err);
@@ -251,28 +258,48 @@ router.post("/:id/learning/quiz/:moduleId/submit", requireAuth, async (req, res)
       : Math.max(mod.bestQuizScore, result.score);
     const newStatus = !result.passed && mod.status === "in_progress" ? "needs_review" : mod.status;
 
+    // ── Concept-level diagnosis (runs in parallel with DB write) ──────────────
+    let conceptDiagnosis = null;
+    try {
+      const project = await Project.findOne({ _id: req.params.id, userId: req.user.userId })
+        .select("jobRole").lean();
+      conceptDiagnosis = await diagnoseQuizConcepts({
+        skill:    mod.title,
+        category: mod.category || "general",
+        role:     plan.targetRole || project?.jobRole || "",
+        questions: mod.quiz.map(q => ({
+          id: q.id, question: q.question,
+          correctIndex: q.correctIndex, conceptTested: q.conceptTested || "",
+        })),
+        answers,
+      });
+    } catch (err) {
+      console.warn("Concept diagnosis failed (non-fatal):", err.message);
+    }
+
     const updatedModules = plan.modules.map(m =>
       m.id === req.params.moduleId
         ? { ...m, status: newStatus, bestQuizScore: newBest, quizAttempts: [...m.quizAttempts, attempt] }
         : m
     );
-    const newReadiness    = calcReadinessScore(updatedModules);
-    const newNextActions  = deriveNextActions(updatedModules);
+    const newReadiness   = calcReadinessScore(updatedModules);
+    const newNextActions = deriveNextActions(updatedModules);
 
-    // Atomic update — no version conflict
-    await LearningPlan.updateOne(
-      { _id: plan._id, "modules.id": req.params.moduleId },
-      {
-        $push: { "modules.$.quizAttempts": attempt },
-        $set: {
-          "modules.$.bestQuizScore":      newBest,
-          "modules.$.status":             newStatus,
-          "progress.readinessScore":      newReadiness,
-          "progress.nextBestActions":     newNextActions,
-          "progress.lastUpdatedAt":       new Date(),
-        },
-      }
-    );
+    const dbUpdate = {
+      $push: { "modules.$.quizAttempts": attempt },
+      $set: {
+        "modules.$.bestQuizScore":  newBest,
+        "modules.$.status":         newStatus,
+        "progress.readinessScore":  newReadiness,
+        "progress.nextBestActions": newNextActions,
+        "progress.lastUpdatedAt":   new Date(),
+      },
+    };
+    if (conceptDiagnosis) {
+      dbUpdate.$set["modules.$.conceptDiagnosis"] = conceptDiagnosis;
+    }
+
+    await LearningPlan.updateOne({ _id: plan._id, "modules.id": req.params.moduleId }, dbUpdate);
 
     if (result.passed) {
       const xpAction = previousFailed ? "quiz_retry_pass" : "quiz_pass";
@@ -281,6 +308,7 @@ router.post("/:id/learning/quiz/:moduleId/submit", requireAuth, async (req, res)
 
     return res.json({
       ...result,
+      conceptDiagnosis,
       module:   { id: mod.id, status: newStatus, bestQuizScore: newBest, attemptCount: mod.quizAttempts.length + 1 },
       progress: { ...plan.progress, readinessScore: newReadiness, nextBestActions: newNextActions },
     });
@@ -330,6 +358,48 @@ router.patch("/:id/learning/lab/:moduleId/complete", requireAuth, async (req, re
   } catch (err) {
     console.error("Lab complete error:", err);
     return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ── POST /api/projects/:id/learning/projects ──────────────────────────────────
+
+router.post("/:id/learning/projects", requireAuth, async (req, res) => {
+  try {
+    const [plan, project] = await Promise.all([
+      LearningPlan.findOne({ projectId: req.params.id, userId: req.user.userId }).lean(),
+      Project.findOne({ _id: req.params.id, userId: req.user.userId }).select("jobRole jobDescription").lean(),
+    ]);
+    if (!plan) return res.status(404).json({ message: "Learning plan not found" });
+
+    // Build weak-skills list from modules that have concept diagnosis
+    const weakSkills = (plan.modules || [])
+      .filter(m => m.conceptDiagnosis?.conceptsWeak?.length > 0)
+      .map(m => ({
+        skill:        m.title,
+        category:     m.category,
+        conceptsWeak: m.conceptDiagnosis.conceptsWeak,
+      }));
+
+    if (weakSkills.length === 0) {
+      return res.status(400).json({ message: "Complete at least one quiz first so the system can detect your weak concepts." });
+    }
+
+    const result = await recommendProjects({
+      role:      plan.targetRole || project?.jobRole || "",
+      weakSkills,
+      jdText:    project?.jobDescription || "",
+    });
+
+    // Persist to plan
+    await LearningPlan.updateOne(
+      { _id: plan._id },
+      { $set: { projectRecommendations: result.projects } }
+    );
+
+    return res.json({ projects: result.projects });
+  } catch (err) {
+    console.error("Project recommendations error:", err);
+    return res.status(500).json({ message: err.message || "Server error" });
   }
 });
 

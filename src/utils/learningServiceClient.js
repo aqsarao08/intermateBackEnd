@@ -128,3 +128,60 @@ export async function generateLearningPlan(input) {
 
   return normalizePlan(data);
 }
+
+export async function diagnoseQuizConcepts({ skill, category, role, questions, answers }) {
+  const response = await fetch(`${LEARNING_SERVICE_URL}/learning/diagnose-concepts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ skill, category, role, questions, answers }),
+  });
+
+  let data;
+  try { data = await response.json(); }
+  catch { throw new Error(`Learning service error ${response.status}`); }
+  if (!response.ok) throw new Error(data.detail || data.message || "Concept diagnosis failed");
+
+  return {
+    skillLevel:        data.skill_level         ?? data.skillLevel        ?? "beginner",
+    scorePct:          data.score_pct           ?? data.scorePct          ?? 0,
+    conceptsKnown:     data.concepts_known       ?? data.conceptsKnown    ?? [],
+    conceptsWeak:      data.concepts_weak        ?? data.conceptsWeak     ?? [],
+    targetedResources: (data.targeted_resources  ?? data.targetedResources ?? []).map(r => ({
+      concept:      r.concept        ?? "",
+      label:        r.label          ?? "",
+      url:          r.url            ?? "",
+      platform:     r.platform       ?? "",
+      type:         r.type           ?? "article",
+      whyThisHelps: r.why_this_helps ?? r.whyThisHelps ?? "",
+    })),
+    summary:     data.summary     ?? "",
+    diagnosedAt: new Date().toISOString(),
+  };
+}
+
+export async function recommendProjects({ role, weakSkills, jdText }) {
+  const response = await fetch(`${LEARNING_SERVICE_URL}/learning/recommend-projects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role, weak_skills: weakSkills, jd_text: jdText || "" }),
+  });
+
+  let data;
+  try { data = await response.json(); }
+  catch { throw new Error(`Learning service error ${response.status}`); }
+  if (!response.ok) throw new Error(data.detail || data.message || "Project recommendation failed");
+
+  return {
+    projects: (data.projects ?? []).map(p => ({
+      title:              p.title                ?? "",
+      description:        p.description          ?? "",
+      difficulty:         p.difficulty           ?? "intermediate",
+      estimatedHours:     p.estimated_hours      ?? p.estimatedHours      ?? 20,
+      primarySkill:       p.primary_skill        ?? p.primarySkill        ?? "",
+      relatedSkills:      p.related_skills       ?? p.relatedSkills       ?? [],
+      whyThisProject:     p.why_this_project     ?? p.whyThisProject      ?? "",
+      steps:              p.steps                ?? [],
+      weakAreasAddressed: p.weak_areas_addressed ?? p.weakAreasAddressed  ?? [],
+    })),
+  };
+}

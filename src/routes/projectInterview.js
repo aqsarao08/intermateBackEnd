@@ -274,6 +274,22 @@ router.patch("/:id/interview/:sessionId/answer", requireAuth, async (req, res) =
   }
 });
 
+// ── DELETE /api/projects/:id/interview/:sessionId ─────────────────────────────
+router.delete("/:id/interview/:sessionId", requireAuth, async (req, res) => {
+  try {
+    const session = await InterviewSession.findOneAndDelete({
+      _id: req.params.sessionId,
+      user: req.user.userId,
+      projectId: req.params.id,
+    });
+    if (!session) return res.status(404).json({ message: "Session not found" });
+    res.json({ message: "Session deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // GET /api/projects/:id/interview/:sessionId/report
 router.get("/:id/interview/:sessionId/report", requireAuth, async (req, res) => {
   try {

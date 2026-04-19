@@ -47,12 +47,13 @@ const objectiveSchema = new mongoose.Schema(
 
 const quizQuestionSchema = new mongoose.Schema(
   {
-    id:           { type: String, required: true },
-    question:     { type: String, default: "" },
-    options:      { type: [String], default: [] },
-    correctIndex: { type: Number, default: 0 },
-    explanation:  { type: String, default: "" },
-    difficulty:   { type: String, enum: ["easy", "medium", "hard"], default: "medium" },
+    id:             { type: String, required: true },
+    question:       { type: String, default: "" },
+    options:        { type: [String], default: [] },
+    correctIndex:   { type: Number, default: 0 },
+    explanation:    { type: String, default: "" },
+    difficulty:     { type: String, enum: ["easy", "medium", "hard"], default: "medium" },
+    conceptTested:  { type: String, default: "" },
   },
   { _id: false }
 );
@@ -77,6 +78,46 @@ const resourceSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const targetedResourceSchema = new mongoose.Schema(
+  {
+    concept:       { type: String, default: "" },
+    label:         { type: String, default: "" },
+    url:           { type: String, default: "" },
+    platform:      { type: String, default: "" },
+    type:          { type: String, enum: ["docs", "video", "course", "article", "practice"], default: "article" },
+    whyThisHelps:  { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const conceptDiagnosisSchema = new mongoose.Schema(
+  {
+    skillLevel:        { type: String, enum: ["beginner", "intermediate", "advanced"], default: "beginner" },
+    scorePct:          { type: Number, default: 0 },
+    conceptsKnown:     { type: [String], default: [] },
+    conceptsWeak:      { type: [String], default: [] },
+    targetedResources: { type: [targetedResourceSchema], default: [] },
+    summary:           { type: String, default: "" },
+    diagnosedAt:       { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const projectRecommendationSchema = new mongoose.Schema(
+  {
+    title:               { type: String, default: "" },
+    description:         { type: String, default: "" },
+    difficulty:          { type: String, enum: ["beginner", "intermediate", "advanced"], default: "intermediate" },
+    estimatedHours:      { type: Number, default: 20 },
+    primarySkill:        { type: String, default: "" },
+    relatedSkills:       { type: [String], default: [] },
+    whyThisProject:      { type: String, default: "" },
+    steps:               { type: [String], default: [] },
+    weakAreasAddressed:  { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
 const moduleSchema = new mongoose.Schema(
   {
     id:               { type: String, required: true },
@@ -93,11 +134,12 @@ const moduleSchema = new mongoose.Schema(
       enum: ["not_started", "in_progress", "completed", "needs_review"],
       default: "not_started",
     },
-    orderIndex:    { type: Number, default: 0 },
-    resources:     { type: [resourceSchema], default: [] },
-    quiz:          { type: [quizQuestionSchema], default: [] },
-    quizAttempts:  { type: [quizAttemptSchema], default: [] },
-    bestQuizScore: { type: Number, default: null },
+    orderIndex:       { type: Number, default: 0 },
+    resources:        { type: [resourceSchema], default: [] },
+    quiz:             { type: [quizQuestionSchema], default: [] },
+    quizAttempts:     { type: [quizAttemptSchema], default: [] },
+    bestQuizScore:    { type: Number, default: null },
+    conceptDiagnosis: { type: conceptDiagnosisSchema, default: null },
     labSpec: {
       title:         { type: String, default: "" },
       description:   { type: String, default: "" },
@@ -153,6 +195,7 @@ const learningPlanSchema = new mongoose.Schema(
       quizResults: { type: [mongoose.Schema.Types.Mixed], default: [] },
       codingLabResults: { type: [mongoose.Schema.Types.Mixed], default: [] },
     },
+    projectRecommendations: { type: [projectRecommendationSchema], default: [] },
     version: { type: Number, default: 1 },
   },
   { timestamps: true }

@@ -1,16 +1,23 @@
 import re
 from collections import defaultdict
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from app.models.schemas import (
+    ConceptDiagnosisRequest,
+    ConceptDiagnosisResponse,
     LearningObjectiveDTO,
     LearningPlanRequest,
     LearningPlanResponse,
     LearningProgressDTO,
     LearningWeakness,
+    ProjectRecommendation,
+    RecommendProjectsRequest,
+    RecommendProjectsResponse,
     SourceSignalInput,
     LearningModuleDTO,
+    TargetedResource,
 )
+from app.services.llm_client import request_json
 from app.services.skill_extractor import canonicalize
 
 
@@ -307,3 +314,224 @@ def generate_learning_plan(payload: LearningPlanRequest) -> LearningPlanResponse
         ),
         normalized_signals=normalized_signals,
     )
+
+
+# ── Concept-level diagnosis ───────────────────────────────────────────────────
+
+def diagnose_quiz_concepts(payload: ConceptDiagnosisRequest) -> ConceptDiagnosisResponse:
+    """
+    Analyse quiz results at sub-concept level.
+    Identifies exactly which concepts the user knows vs. is weak on,
+    infers their skill level, and generates targeted resources for gaps.
+    """
+    questions = payload.questions
+    answers   = payload.answers
+
+    concepts_known: list[str] = []
+    concepts_weak:  list[str] = []
+
+    correct_count = 0
+    for q, ans in zip(questions, answers):
+        correct_idx = int(q.get("correctIndex", q.get("correct_index", 0)))
+        concept     = (q.get("conceptTested") or q.get("concept_tested") or "").strip()
+        is_correct  = (ans == correct_idx)
+
+        if is_correct:
+            correct_count += 1
+            if concept and concept not in concepts_known and concept not in concepts_weak:
+                concepts_known.append(concept)
+        else:
+            if concept and concept not in concepts_weak:
+                concepts_weak.append(concept)
+                # Remove from known if it appears in weak (another question revealed the gap)
+                if concept in concepts_known:
+                    concepts_known.remove(concept)
+
+    total     = max(len(questions), 1)
+    score_pct = round((correct_count / total) * 100)
+
+    if score_pct >= 80:
+        skill_level = "advanced"
+    elif score_pct >= 50:
+        skill_level = "intermediate"
+    else:
+        skill_level = "beginner"
+
+    targeted_resources = _generate_targeted_resources(
+        payload.skill, payload.category, payload.role, concepts_weak
+    )
+
+    summary = _build_concept_summary(payload.skill, skill_level, concepts_known, concepts_weak)
+
+    return ConceptDiagnosisResponse(
+        skill=payload.skill,
+        skill_level=skill_level,
+        score_pct=score_pct,
+        concepts_known=concepts_known,
+        concepts_weak=concepts_weak,
+        targeted_resources=targeted_resources,
+        summary=summary,
+    )
+
+
+def _generate_targeted_resources(
+    skill: str,
+    category: str,
+    role: str,
+    weak_concepts: list[str],
+) -> list[TargetedResource]:
+    if not weak_concepts:
+        return []
+
+    concepts_str = "\n".join(f"- {c}" for c in weak_concepts[:7])
+
+    system_prompt = (
+        "You are a technical learning expert. Generate specific, real learning resources. "
+        "Use ONLY real URLs from: official documentation, MDN, React docs, Node.js docs, "
+        "Python docs, YouTube (use youtube.com/results?search_query=... for search), "
+        "freeCodeCamp (freecodecamp.org/news), or GitHub. "
+        "If unsure of the exact URL, use a YouTube search URL. Return ONLY valid JSON."
+    )
+
+    user_prompt = f"""The user is learning "{skill}" for a {role or "software engineer"} role (category: {category}).
+
+They are SPECIFICALLY WEAK in these sub-concepts:
+{concepts_str}
+
+Generate ONE targeted resource per weak concept.
+
+Return JSON:
+{{
+  "resources": [
+    {{
+      "concept": "<exact concept from the list above>",
+      "label": "<descriptive resource title>",
+      "url": "<real URL — use YouTube search if unsure of direct URL>",
+      "platform": "YouTube|MDN|Official Docs|freeCodeCamp|GitHub|Dev.to",
+      "type": "video|docs|article|course|practice",
+      "why_this_helps": "<one sentence: how this resource closes this specific concept gap>"
+    }}
+  ]
+}}"""
+
+    try:
+        raw       = request_json(system_prompt, user_prompt, max_tokens=1800)
+        resources = raw.get("resources", [])
+        return [
+            TargetedResource(
+                concept=r.get("concept", ""),
+                label=r.get("label", ""),
+                url=r.get("url", ""),
+                platform=r.get("platform", ""),
+                type=r.get("type", "article"),
+                why_this_helps=r.get("why_this_helps", ""),
+            )
+            for r in resources
+            if r.get("url") and r.get("label") and r.get("concept")
+        ]
+    except Exception:
+        return []
+
+
+def _build_concept_summary(
+    skill: str,
+    skill_level: str,
+    concepts_known: list[str],
+    concepts_weak: list[str],
+) -> str:
+    known = len(concepts_known)
+    weak  = len(concepts_weak)
+    total = known + weak
+    if total == 0:
+        return f"No concept data available for {skill}."
+    if weak == 0:
+        return f"Strong grasp of {skill} — all tested concepts answered correctly."
+    if known == 0:
+        return f"Foundational gaps in {skill}. Focus on core concepts before advancing to applied use."
+    return (
+        f"{skill_level.capitalize()} level in {skill}. "
+        f"Solid on {known} concept{'s' if known != 1 else ''}, "
+        f"needs targeted study on {weak} concept{'s' if weak != 1 else ''}."
+    )
+
+
+# ── Project recommendations ───────────────────────────────────────────────────
+
+def recommend_projects(payload: RecommendProjectsRequest) -> RecommendProjectsResponse:
+    """
+    Generate concrete project ideas that directly target the user's detected weak areas.
+    Each project connects to specific concepts the user failed in quizzes.
+    """
+    if not payload.weak_skills:
+        return RecommendProjectsResponse(projects=[])
+
+    skills_str = "\n".join(
+        "- {skill} (weak concepts: {concepts})".format(
+            skill=ws.get("skill", ""),
+            concepts=", ".join(ws.get("conceptsWeak", ws.get("concepts_weak", []))[:4]) or "general fundamentals",
+        )
+        for ws in payload.weak_skills[:6]
+    )
+
+    system_prompt = (
+        "You are a senior software engineering mentor. Generate practical, buildable project ideas "
+        "that directly target specific skill gaps. Projects must be concrete and completable in 1-3 weeks. "
+        "Return ONLY valid JSON."
+    )
+
+    user_prompt = f"""The user is preparing for a {payload.role or "software engineer"} role.
+
+Their DETECTED WEAK AREAS with specific concept gaps:
+{skills_str}
+
+Job description context: {(payload.jd_text or "")[:400] or "General software engineering role"}
+
+Generate exactly 3 project ideas. Each project MUST:
+1. Directly address 1-2 of the weak skills/concepts listed above
+2. Be specific enough to build in 1-3 weeks
+3. Mention in why_this_project EXACTLY which weak concepts it will reinforce
+
+Return JSON:
+{{
+  "projects": [
+    {{
+      "title": "<specific project name>",
+      "description": "<2-3 sentences: what to build, what problem it solves>",
+      "difficulty": "beginner|intermediate|advanced",
+      "estimated_hours": <realistic number 8-40>,
+      "primary_skill": "<the main skill this project drills>",
+      "related_skills": ["<skill1>", "<skill2>", "<skill3>"],
+      "why_this_project": "<specifically how this project targets the user's detected concept gaps>",
+      "steps": [
+        "<concrete step 1 — what to set up>",
+        "<concrete step 2 — core feature to build>",
+        "<concrete step 3 — feature that exercises the weak concept>",
+        "<concrete step 4 — what to add to make it portfolio-ready>"
+      ],
+      "weak_areas_addressed": ["<exact weak skill or concept from the list above>"]
+    }}
+  ]
+}}"""
+
+    try:
+        raw      = request_json(system_prompt, user_prompt, max_tokens=2500)
+        projects = raw.get("projects", [])
+        return RecommendProjectsResponse(
+            projects=[
+                ProjectRecommendation(
+                    title=p.get("title", ""),
+                    description=p.get("description", ""),
+                    difficulty=p.get("difficulty", "intermediate"),
+                    estimated_hours=int(p.get("estimated_hours", 20)),
+                    primary_skill=p.get("primary_skill", ""),
+                    related_skills=p.get("related_skills", []),
+                    why_this_project=p.get("why_this_project", ""),
+                    steps=p.get("steps", []),
+                    weak_areas_addressed=p.get("weak_areas_addressed", []),
+                )
+                for p in projects
+                if p.get("title")
+            ]
+        )
+    except Exception:
+        return RecommendProjectsResponse(projects=[])

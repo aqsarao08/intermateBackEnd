@@ -218,6 +218,7 @@ class QuizQuestion(BaseModel):
     correct_index: int
     explanation: str
     difficulty: Literal["easy", "medium", "hard"] = "medium"
+    concept_tested: str = ""
 
 
 class QuizGenerateRequest(BaseModel):
@@ -243,3 +244,56 @@ class LearningPlanResponse(BaseModel):
     modules: List[LearningModuleDTO] = Field(default_factory=list)
     progress: LearningProgressDTO = Field(default_factory=LearningProgressDTO)
     normalized_signals: List[SourceSignalInput] = Field(default_factory=list)
+
+
+# ── Concept-level diagnosis ───────────────────────────────────────────────────
+
+class TargetedResource(BaseModel):
+    concept: str
+    label: str
+    url: str
+    platform: str
+    type: Literal["docs", "video", "course", "article", "practice"] = "article"
+    why_this_helps: str = ""
+
+
+class ConceptDiagnosisRequest(BaseModel):
+    skill: str
+    category: str = "general"
+    role: str = ""
+    questions: List[Dict[str, Any]]  # full questions with correct_index + concept_tested
+    answers: List[int]               # user-selected indices (parallel to questions)
+
+
+class ConceptDiagnosisResponse(BaseModel):
+    skill: str
+    skill_level: Literal["beginner", "intermediate", "advanced"]
+    score_pct: int
+    concepts_known: List[str] = Field(default_factory=list)
+    concepts_weak: List[str] = Field(default_factory=list)
+    targeted_resources: List[TargetedResource] = Field(default_factory=list)
+    summary: str = ""
+
+
+# ── Project recommendations ───────────────────────────────────────────────────
+
+class ProjectRecommendation(BaseModel):
+    title: str
+    description: str
+    difficulty: Literal["beginner", "intermediate", "advanced"] = "intermediate"
+    estimated_hours: int = 20
+    primary_skill: str = ""
+    related_skills: List[str] = Field(default_factory=list)
+    why_this_project: str = ""
+    steps: List[str] = Field(default_factory=list)
+    weak_areas_addressed: List[str] = Field(default_factory=list)
+
+
+class RecommendProjectsRequest(BaseModel):
+    role: str = ""
+    weak_skills: List[Dict[str, Any]] = Field(default_factory=list)
+    jd_text: str = ""
+
+
+class RecommendProjectsResponse(BaseModel):
+    projects: List[ProjectRecommendation] = Field(default_factory=list)
