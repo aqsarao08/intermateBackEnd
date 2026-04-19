@@ -3,7 +3,7 @@ uvicorn[standard]==0.34.2
 python-multipart==0.0.9
 pdfplumber==0.11.5
 PyMuPDF==1.25.5
-spacy==3.8.5
+spacy==3.8.14
 rapidfuzz==3.13.0
 sentence-transformers==3.4.1
 scikit-learn==1.6.1
