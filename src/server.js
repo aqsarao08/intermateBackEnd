@@ -16,6 +16,15 @@ import contactRoutes from "./routes/contact.js";
 
 dotenv.config();
 
+// Startup diagnostic — helps confirm env vars are present in Railway/production
+if (process.env.NODE_ENV === "production") {
+  console.log("[startup] NODE_ENV      :", process.env.NODE_ENV);
+  console.log("[startup] MONGODB_URI   :", process.env.MONGODB_URI ? "SET ✓" : "MISSING ✗");
+  console.log("[startup] JWT_SECRET    :", process.env.JWT_SECRET ? "SET ✓" : "MISSING ✗");
+  console.log("[startup] PORT          :", process.env.PORT || "(using default 4000)");
+  console.log("[startup] CLIENT_URL    :", process.env.CLIENT_URL || "(not set)");
+}
+
 const app = express();
 const defaultClientOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
 const configuredClientOrigins = [
