@@ -219,13 +219,14 @@ Evaluator persona: {_PERSONA_EVAL.get(payload.persona, _PERSONA_EVAL['mixed'])}"
 
 class TranscribeResponse(BaseModel):
     transcript: str
+    delivery_observations: dict = Field(default_factory=dict)
 
 
 @router.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe_audio(file: UploadFile = File(...)) -> TranscribeResponse:
     settings = get_settings()
     if not settings.openai_api_key:
-        return TranscribeResponse(transcript="")
+        return TranscribeResponse(transcript="", delivery_observations={})
     try:
         import openai
         client = openai.OpenAI(api_key=settings.openai_api_key)
@@ -235,11 +236,37 @@ async def transcribe_audio(file: UploadFile = File(...)) -> TranscribeResponse:
         result = client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_io,
-            response_format="text",
+            response_format="verbose_json",
         )
-        return TranscribeResponse(transcript=str(result).strip())
+        transcript = (getattr(result, "text", "") or "").strip()
+        segments = list(getattr(result, "segments", []) or [])
+
+        answer_duration_sec = 0.0
+        pause_gaps: List[float] = []
+        for idx, segment in enumerate(segments):
+            end_value = float(getattr(segment, "end", 0.0) or 0.0)
+            answer_duration_sec = max(answer_duration_sec, end_value)
+            if idx > 0:
+                prev_end = float(getattr(segments[idx - 1], "end", 0.0) or 0.0)
+                current_start = float(getattr(segment, "start", 0.0) or 0.0)
+                gap = max(0.0, current_start - prev_end)
+                if gap > 0:
+                    pause_gaps.append(gap)
+
+        avg_pause_sec = round(sum(pause_gaps) / len(pause_gaps), 2) if pause_gaps else 0.0
+        long_silence_count = sum(1 for gap in pause_gaps if gap >= 1.2)
+
+        return TranscribeResponse(
+            transcript=transcript,
+            delivery_observations={
+                "answer_duration_sec": round(answer_duration_sec, 2),
+                "average_pause_sec": avg_pause_sec,
+                "long_silence_count": long_silence_count,
+                "segment_count": len(segments),
+            },
+        )
     except Exception:
-        return TranscribeResponse(transcript="")
+        return TranscribeResponse(transcript="", delivery_observations={})
 
 
 # ── Phase 3: Adaptive follow-up ───────────────────────────────────────────────

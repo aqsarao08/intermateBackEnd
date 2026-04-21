@@ -46,6 +46,8 @@ function normalizeAnalysis(payload = {}) {
 
 export async function analyzeDocuments({ resumeFile, jdFile, jdText }) {
   const form = new FormData();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 180000);
 
   form.append("resume_file", resumeFile.buffer, {
     filename: resumeFile.originalname,
@@ -63,11 +65,29 @@ export async function analyzeDocuments({ resumeFile, jdFile, jdText }) {
     form.append("jd_text", jdText.trim());
   }
 
-  const response = await fetch(`${ANALYZER_URL}/analyze`, {
-    method: "POST",
-    headers: form.getHeaders(),
-    body: form.getBuffer(),
-  });
+  const body = form.getBuffer();
+  const headers = {
+    ...form.getHeaders(),
+    "Content-Length": String(body.length),
+  };
+
+  let response;
+  try {
+    response = await fetch(`${ANALYZER_URL}/analyze`, {
+      method: "POST",
+      headers,
+      body,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error?.name === "AbortError") {
+      throw new Error("Resume analyzer timed out while reprocessing this file. Please try again.");
+    }
+    throw error;
+  }
+
+  clearTimeout(timeout);
 
   let data;
   try {
@@ -84,14 +104,29 @@ export async function analyzeDocuments({ resumeFile, jdFile, jdText }) {
 }
 
 export async function analyzeStoredTexts({ resumeText, jdText }) {
-  const response = await fetch(`${ANALYZER_URL}/analyze/text`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      resume_text: resumeText,
-      jd_text: jdText,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 180000);
+
+  let response;
+  try {
+    response = await fetch(`${ANALYZER_URL}/analyze/text`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        resume_text: resumeText,
+        jd_text: jdText,
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error?.name === "AbortError") {
+      throw new Error("Resume analyzer timed out while analyzing stored text. Please try again.");
+    }
+    throw error;
+  }
+
+  clearTimeout(timeout);
 
   let data;
   try {

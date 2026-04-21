@@ -69,6 +69,20 @@ function toAiInsights(result) {
   };
 }
 
+function mergeKeywordFallbacks(nextInsights, previousInsights = {}) {
+  const nextMatched = nextInsights.matchedKeywords || [];
+  const nextMissing = nextInsights.missingKeywords || [];
+  const nextJdKeywords = nextInsights.jdKeywords || [];
+  const combinedFromFresh = [...new Set([...nextMatched, ...nextMissing, ...nextJdKeywords])];
+
+  return {
+    ...nextInsights,
+    matchedKeywords: nextMatched.length ? nextMatched : previousInsights.matchedKeywords || [],
+    missingKeywords: nextMissing.length ? nextMissing : previousInsights.missingKeywords || [],
+    jdKeywords: combinedFromFresh.length ? combinedFromFresh : previousInsights.jdKeywords || [],
+  };
+}
+
 router.post("/:id/resume/upload", requireAuth, upload.single("resume"), async (req, res) => {
   try {
     const project = await Project.findOne({
@@ -82,20 +96,32 @@ router.post("/:id/resume/upload", requireAuth, upload.single("resume"), async (r
 
     const jobDescription = String(req.body.jdText || project.jobDescription || "").trim();
 
+    const previousInsights = project.aiInsights?.toObject?.() || project.aiInsights || {};
+
     project.aiInsights = {
-      ...(project.aiInsights?.toObject?.() || {}),
+      ...previousInsights,
       processingStatus: "processing",
     };
     await project.save();
 
-    const analysisResult = await analyzeDocuments({
-      resumeFile: req.file,
-      jdText: jobDescription,
-    });
+    let analysisResult;
+    try {
+      analysisResult = await analyzeDocuments({
+        resumeFile: req.file,
+        jdText: jobDescription,
+      });
+    } catch (error) {
+      project.aiInsights = {
+        ...previousInsights,
+        processingStatus: previousInsights.processingStatus === "done" ? "done" : "failed",
+      };
+      await project.save();
+      throw error;
+    }
 
-    const previousAtsScore = project.aiInsights?.atsScore || 0;
+    const previousAtsScore = previousInsights.atsScore || previousInsights.resumeMatchScore || 0;
     project.resumeText = analysisResult.resumeText || "";
-    project.aiInsights = toAiInsights(analysisResult);
+    project.aiInsights = mergeKeywordFallbacks(toAiInsights(analysisResult), previousInsights);
     await project.save();
 
     const newAtsScore = analysisResult.atsScore || 0;

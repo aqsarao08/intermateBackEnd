@@ -36,10 +36,113 @@ function weakestDimension(dims = {}) {
   return Object.entries(dims).sort((a, b) => a[1] - b[1])[0]?.[0] || "depth";
 }
 
+function analyzeDelivery(answer = "", delivery = {}) {
+  const cleaned = String(answer || "").trim();
+  const tokens = cleaned
+    .toLowerCase()
+    .replace(/[^a-z0-9\s']/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const transcriptWordCount = tokens.length;
+  const duration = Number(delivery.answerDurationSec || 0);
+  const responseLatencySec = Number(delivery.responseLatencySec || 0);
+  const averagePauseSec = Number(delivery.averagePauseSec || 0);
+  const longSilenceCount = Number(delivery.longSilenceCount || 0);
+
+  const fillerSet = new Set(["um", "uh", "like", "basically", "actually", "literally", "you", "know"]);
+  const fillerWordsCount = tokens.filter((token, index) => {
+    if (token === "you" || token === "know") {
+      return token === "you" && tokens[index + 1] === "know";
+    }
+    return fillerSet.has(token);
+  }).length;
+
+  let repeatedWordsCount = 0;
+  for (let i = 1; i < tokens.length; i += 1) {
+    if (tokens[i] === tokens[i - 1]) repeatedWordsCount += 1;
+  }
+
+  const wordsPerMinute =
+    duration > 0 ? Math.round((transcriptWordCount / duration) * 60) : 0;
+
+  let transcriptFluencyScore = 10;
+  if (fillerWordsCount >= 8) transcriptFluencyScore -= 3;
+  else if (fillerWordsCount >= 4) transcriptFluencyScore -= 2;
+  else if (fillerWordsCount >= 2) transcriptFluencyScore -= 1;
+
+  if (repeatedWordsCount >= 5) transcriptFluencyScore -= 2;
+  else if (repeatedWordsCount >= 2) transcriptFluencyScore -= 1;
+
+  if (longSilenceCount >= 3) transcriptFluencyScore -= 2;
+  else if (longSilenceCount >= 1) transcriptFluencyScore -= 1;
+
+  transcriptFluencyScore = Math.max(1, Math.min(10, transcriptFluencyScore));
+
+  const deliveryFeedback = [];
+  const deliveryStrengths = [];
+  const deliveryImprovements = [];
+
+  if (wordsPerMinute >= 175) {
+    deliveryFeedback.push("Your delivery sounded rushed based on your speaking pace.");
+    deliveryImprovements.push(`You averaged about ${wordsPerMinute} words per minute. Slow down slightly so key points land more clearly.`);
+  } else if (wordsPerMinute > 0 && wordsPerMinute <= 95) {
+    deliveryFeedback.push("Your pacing was quite slow, which may weaken clarity and momentum.");
+    deliveryImprovements.push(`You averaged about ${wordsPerMinute} words per minute. Try a slightly steadier pace to sound more confident and concise.`);
+  } else if (wordsPerMinute >= 115 && wordsPerMinute <= 160) {
+    deliveryStrengths.push(`Your pacing was steady at around ${wordsPerMinute} words per minute.`);
+  }
+
+  if (fillerWordsCount >= 1) {
+    deliveryFeedback.push(`You used ${fillerWordsCount} filler word${fillerWordsCount === 1 ? "" : "s"} in this answer.`);
+    if (fillerWordsCount >= 4) {
+      deliveryImprovements.push("Reduce filler words by pausing silently instead of filling space while thinking.");
+    }
+  } else if (transcriptWordCount > 0) {
+    deliveryStrengths.push("Your transcript was clean with no obvious filler words.");
+  }
+
+  if (longSilenceCount >= 1) {
+    deliveryFeedback.push(`There ${longSilenceCount === 1 ? "was" : "were"} ${longSilenceCount} longer pause${longSilenceCount === 1 ? "" : "s"} during the answer.`);
+    deliveryImprovements.push("Group your answer into 2-3 clear chunks so pauses feel intentional instead of uncertain.");
+  } else if (averagePauseSec > 0 && averagePauseSec <= 0.75) {
+    deliveryStrengths.push("Your pauses were short and fairly controlled.");
+  }
+
+  if (responseLatencySec >= 4) {
+    deliveryFeedback.push(`You took about ${responseLatencySec.toFixed(1)} seconds to begin responding.`);
+    deliveryImprovements.push("Start with a simple framing sentence quickly, then expand with detail.");
+  }
+
+  if (repeatedWordsCount >= 2) {
+    deliveryFeedback.push(`Your answer repeated the same word or phrase ${repeatedWordsCount} times.`);
+    deliveryImprovements.push("Try shorter sentences and one idea at a time to avoid verbal repetition.");
+  }
+
+  return {
+    metrics: {
+      answerDurationSec: duration,
+      responseLatencySec,
+      wordsPerMinute,
+      averagePauseSec,
+      longSilenceCount,
+      fillerWordsCount,
+      repeatedWordsCount,
+      transcriptWordCount,
+      transcriptFluencyScore,
+    },
+    deliveryFeedback,
+    deliveryStrengths,
+    deliveryImprovements,
+  };
+}
+
 // ── Build final report from completed questions ───────────────────────────────
 function buildReport(questions, overallScore) {
   const strengths    = questions.map((q) => q.strength).filter(Boolean);
   const improvements = questions.map((q) => q.improvement).filter(Boolean);
+  const deliveryStrengths = questions.flatMap((q) => q.deliveryFeedback?.filter((item) => item.includes("steady") || item.includes("clean") || item.includes("controlled")) || []);
+  const deliveryImprovements = questions.flatMap((q) => q.deliveryFeedback?.filter((item) => !item.includes("steady") && !item.includes("clean") && !item.includes("controlled")) || []);
 
   let recommendation;
   if (overallScore >= 8)      recommendation = "Excellent performance! Focus on polishing delivery and researching the company.";
@@ -48,12 +151,13 @@ function buildReport(questions, overallScore) {
   else                        recommendation = "Needs improvement. Review fundamentals, practice each question type, and retry the interview.";
 
   return {
-    strengths,
-    improvements,
+    strengths: [...strengths, ...deliveryStrengths].slice(0, 6),
+    improvements: [...improvements, ...deliveryImprovements].slice(0, 6),
     suggestedResources: [
       "Practice the STAR method (Situation, Task, Action, Result) for behavioral questions",
       "Research the company's products, culture, and recent news",
       "Prepare 3-5 specific examples from past projects with measurable outcomes",
+      "Record one-minute answers and review filler words, pace, and pause patterns",
     ],
     recommendation,
   };
@@ -151,7 +255,7 @@ router.post("/:id/interview/:sessionId/transcribe", requireAuth, audioUpload.sin
 // ── PATCH /api/projects/:id/interview/:sessionId/answer ──────────────────────
 router.patch("/:id/interview/:sessionId/answer", requireAuth, async (req, res) => {
   try {
-    const { index, answer } = req.body;
+    const { index, answer, delivery } = req.body;
 
     const [session, project] = await Promise.all([
       InterviewSession.findOne({
@@ -188,12 +292,21 @@ router.patch("/:id/interview/:sessionId/answer", requireAuth, async (req, res) =
       };
     }
 
+    const deliveryResult = analyzeDelivery(answer || "", delivery || {});
+    const deliverySummary = deliveryResult.deliveryFeedback.length
+      ? ` Delivery feedback: ${deliveryResult.deliveryFeedback.join(" ")}`
+      : "";
+
     q.userAnswer  = answer || "";
-    q.aiFeedback  = evaluation.feedback;
+    q.aiFeedback  = `${evaluation.feedback}${deliverySummary}`.trim();
     q.strength    = evaluation.strength;
-    q.improvement = evaluation.improvement;
+    q.improvement = deliveryResult.deliveryImprovements[0]
+      ? `${evaluation.improvement} ${deliveryResult.deliveryImprovements[0]}`
+      : evaluation.improvement;
     q.score       = evaluation.score;
     q.dimensions  = evaluation.dimensions;
+    q.deliveryMetrics = deliveryResult.metrics;
+    q.deliveryFeedback = deliveryResult.deliveryFeedback;
 
     // ── Phase 3: adaptive follow-up ──
     let followupAdded = false;

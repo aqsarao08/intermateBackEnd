@@ -110,6 +110,7 @@ export async function generateQuiz({ moduleId, skill, category, targetRole, seve
     correctIndex: q.correct_index ?? q.correctIndex ?? 0,
     explanation: q.explanation ?? "",
     difficulty: q.difficulty ?? "medium",
+    conceptTested: q.concept_tested ?? q.conceptTested ?? "",
   }));
 }
 

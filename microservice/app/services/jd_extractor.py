@@ -141,6 +141,18 @@ def extract_jd_requirements(jd_text: str) -> Dict[str, List[str] | Dict[str, Lis
                 responsibilities.append(sentence)
 
     all_skills = extract_ranked_phrases(jd_text, role_focus)
+    if not all_skills:
+        fallback_skills = extract_skills(jd_text)
+        preset_hits = [
+            skill
+            for skill in ROLE_FOCUS_PRESETS.get(role_focus, [])
+            if canonicalize(skill) in canonicalize(jd_text)
+        ]
+        all_skills = list(dict.fromkeys([*fallback_skills, *preset_hits]))
+
+    if not all_skills and role_focus in ROLE_FOCUS_PRESETS:
+        all_skills = ROLE_FOCUS_PRESETS[role_focus][:8]
+
     if not required:
         required.update(all_skills[: min(8, len(all_skills))])
     else:

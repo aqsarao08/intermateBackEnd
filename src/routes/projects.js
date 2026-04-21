@@ -70,6 +70,20 @@ function toAiInsights(result) {
   };
 }
 
+function mergeKeywordFallbacks(nextInsights, previousInsights = {}) {
+  const nextMatched = nextInsights.matchedKeywords || [];
+  const nextMissing = nextInsights.missingKeywords || [];
+  const nextJdKeywords = nextInsights.jdKeywords || [];
+  const combinedFromFresh = [...new Set([...nextMatched, ...nextMissing, ...nextJdKeywords])];
+
+  return {
+    ...nextInsights,
+    matchedKeywords: nextMatched.length ? nextMatched : previousInsights.matchedKeywords || [],
+    missingKeywords: nextMissing.length ? nextMissing : previousInsights.missingKeywords || [],
+    jdKeywords: combinedFromFresh.length ? combinedFromFresh : previousInsights.jdKeywords || [],
+  };
+}
+
 function buildProject(project) {
   return {
     id: project._id.toString(),
@@ -150,7 +164,7 @@ router.post("/", requireAuth, upload.single("resume"), async (req, res) => {
       jobDescription: cleanJD,
       resumeText: analysisResult.resumeText || "",
       resumeFileUrl: "",
-      aiInsights: toAiInsights(analysisResult),
+      aiInsights: mergeKeywordFallbacks(toAiInsights(analysisResult)),
       outcome: {
         status: "applied",
         notes: "",
@@ -197,13 +211,13 @@ router.put("/:id", requireAuth, upload.single("resume"), async (req, res) => {
         jdText: finalJD,
       });
       update.resumeText = analysisResult.resumeText || finalResumeText;
-      update.aiInsights = toAiInsights(analysisResult);
+      update.aiInsights = mergeKeywordFallbacks(toAiInsights(analysisResult), current.aiInsights?.toObject?.() || current.aiInsights || {});
     } else if (finalResumeText && finalJD) {
       const analysisResult = await analyzeStoredTexts({
         resumeText: finalResumeText,
         jdText: finalJD,
       });
-      update.aiInsights = toAiInsights(analysisResult);
+      update.aiInsights = mergeKeywordFallbacks(toAiInsights(analysisResult), current.aiInsights?.toObject?.() || current.aiInsights || {});
     }
 
     const project = await Project.findOneAndUpdate(
@@ -243,7 +257,7 @@ router.post("/:id/process", requireAuth, async (req, res) => {
       jdText: project.jobDescription || "",
     });
 
-    project.aiInsights = toAiInsights(analysisResult);
+    project.aiInsights = mergeKeywordFallbacks(toAiInsights(analysisResult), project.aiInsights?.toObject?.() || project.aiInsights || {});
     await project.save();
 
     return res.status(200).json({

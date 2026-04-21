@@ -250,6 +250,63 @@ def build_learning_objectives(weaknesses: List[LearningWeakness]) -> List[Learni
     return objectives
 
 
+def _build_default_resources(title: str, category: str) -> List[Dict[str, str]]:
+    query = re.sub(r"\s+", "+", title.strip())
+    docs_url = ""
+    docs_label = ""
+
+    lowered = canonicalize(title)
+    if "react" in lowered:
+        docs_url = "https://react.dev/learn"
+        docs_label = "React official docs"
+    elif "next" in lowered:
+        docs_url = "https://nextjs.org/docs"
+        docs_label = "Next.js docs"
+    elif "node" in lowered or "express" in lowered:
+        docs_url = "https://nodejs.org/en/learn/getting-started/introduction-to-nodejs"
+        docs_label = "Node.js learning docs"
+    elif "mongo" in lowered:
+        docs_url = "https://www.mongodb.com/docs/"
+        docs_label = "MongoDB docs"
+    elif "sql" in lowered or category == "databases":
+        docs_url = "https://developer.mozilla.org/en-US/docs/Glossary/SQL"
+        docs_label = "SQL overview"
+    elif "test" in lowered or category == "testing":
+        docs_url = "https://testing-library.com/docs/"
+        docs_label = "Testing Library docs"
+    elif "docker" in lowered:
+        docs_url = "https://docs.docker.com/get-started/"
+        docs_label = "Docker getting started"
+    elif "system design" in lowered:
+        docs_url = "https://github.com/donnemartin/system-design-primer"
+        docs_label = "System Design Primer"
+    elif "javascript" in lowered or "typescript" in lowered:
+        docs_url = "https://developer.mozilla.org/en-US/docs/Web/JavaScript"
+        docs_label = "MDN JavaScript guides"
+
+    resources: List[Dict[str, str]] = [
+        {
+            "label": f"YouTube lecture: {title}",
+            "url": f"https://www.youtube.com/results?search_query={query}+full+course",
+            "platform": "YouTube",
+            "type": "video",
+        }
+    ]
+
+    if docs_url:
+        resources.insert(
+            0,
+            {
+                "label": docs_label,
+                "url": docs_url,
+                "platform": "Official Docs",
+                "type": "docs",
+            },
+        )
+
+    return resources
+
+
 def build_placeholder_modules(objectives: List[LearningObjectiveDTO], weaknesses: List[LearningWeakness]) -> List[LearningModuleDTO]:
     weakness_lookup = {weakness.key: weakness for weakness in weaknesses}
     modules: List[LearningModuleDTO] = []
@@ -268,7 +325,10 @@ def build_placeholder_modules(objectives: List[LearningObjectiveDTO], weaknesses
                 prerequisites=[],
                 outcomes=objective.success_criteria,
                 order_index=index,
-                resources=[],
+                resources=_build_default_resources(
+                    primary.label if primary else objective.title,
+                    objective.category,
+                ),
             )
         )
     return modules

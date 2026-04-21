@@ -10,6 +10,21 @@ const dimensionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const deliveryMetricsSchema = new mongoose.Schema(
+  {
+    answerDurationSec: { type: Number, default: 0 },
+    responseLatencySec: { type: Number, default: 0 },
+    wordsPerMinute: { type: Number, default: 0 },
+    averagePauseSec: { type: Number, default: 0 },
+    longSilenceCount: { type: Number, default: 0 },
+    fillerWordsCount: { type: Number, default: 0 },
+    repeatedWordsCount: { type: Number, default: 0 },
+    transcriptWordCount: { type: Number, default: 0 },
+    transcriptFluencyScore: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
 const questionSchema = new mongoose.Schema(
   {
     question:    { type: String, default: "" },
@@ -23,6 +38,8 @@ const questionSchema = new mongoose.Schema(
     improvement: { type: String, default: "" },
     score:       { type: Number, default: 0 },
     dimensions:  { type: dimensionSchema, default: () => ({}) },
+    deliveryMetrics: { type: deliveryMetricsSchema, default: null },
+    deliveryFeedback: { type: [String], default: [] },
   },
   { _id: false }
 );

@@ -9,15 +9,20 @@ except Exception:  # pragma: no cover
     util = None
 
 _embedding_model = None
+_embedding_model_failed = False
 
 
 def _get_embedding_model():
-    global _embedding_model
+    global _embedding_model, _embedding_model_failed
     settings = get_settings()
-    if not settings.enable_embeddings or SentenceTransformer is None:
+    if not settings.enable_embeddings or SentenceTransformer is None or _embedding_model_failed:
         return None
     if _embedding_model is None:
-        _embedding_model = SentenceTransformer(settings.embedding_model)
+        try:
+            _embedding_model = SentenceTransformer(settings.embedding_model)
+        except Exception:
+            _embedding_model_failed = True
+            return None
     return _embedding_model
 
 
@@ -31,9 +36,12 @@ def compute_semantic_similarity(resume_text: str, jd_text: str) -> int:
     model = _get_embedding_model()
     if model is None or util is None:
         return 0
-    embeddings = model.encode([resume_text[:4000], jd_text[:4000]], convert_to_tensor=True)
-    score = float(util.cos_sim(embeddings[0], embeddings[1]).item())
-    return max(0, min(100, round(score * 100)))
+    try:
+        embeddings = model.encode([resume_text[:4000], jd_text[:4000]], convert_to_tensor=True)
+        score = float(util.cos_sim(embeddings[0], embeddings[1]).item())
+        return max(0, min(100, round(score * 100)))
+    except Exception:
+        return 0
 
 
 def compute_section_scores(sections: Dict[str, str]) -> List[Dict[str, str | int]]:

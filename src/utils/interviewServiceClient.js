@@ -86,7 +86,10 @@ export async function transcribeAudio(audioBuffer, mimeType = "audio/webm") {
   let data;
   try { data = await res.json(); } catch { throw new Error(`Transcription service error ${res.status}`); }
   if (!res.ok) throw new Error(data.detail || data.message || "Transcription failed");
-  return data.transcript || "";
+  return {
+    transcript: data.transcript || "",
+    deliveryObservations: data.delivery_observations || data.deliveryObservations || {},
+  };
 }
 
 // Phase 3 ── Adaptive follow-up generation ────────────────────────────────────

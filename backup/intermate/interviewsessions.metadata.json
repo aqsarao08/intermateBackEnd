@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"user":{"$numberInt":"1"}},"name":"user_1","background":true},{"v":{"$numberInt":"2"},"key":{"projectId":{"$numberInt":"1"}},"name":"projectId_1","background":true}],"uuid":"84566418f55449649272ac79ecb28e41","collectionName":"interviewsessions","type":"collection"}

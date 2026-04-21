@@ -90,6 +90,14 @@ const userSchema = new mongoose.Schema(
       enum: ["active", "deactivated"],
       default: "active",
     },
+    resetPasswordTokenHash: {
+      type: String,
+      default: "",
+    },
+    resetPasswordExpiresAt: {
+      type: Date,
+      default: null,
+    },
     notifications: {
       type: notificationSettingsSchema,
       default: () => ({}),

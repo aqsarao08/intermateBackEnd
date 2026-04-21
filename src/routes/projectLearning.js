@@ -213,7 +213,12 @@ router.get("/:id/learning/quiz/:moduleId", requireAuth, async (req, res) => {
 
     let questions = mod.quiz;
 
-    if (!questions || questions.length === 0) {
+    const needsConceptRefresh =
+      Array.isArray(questions) &&
+      questions.length > 0 &&
+      questions.every((q) => !(q.conceptTested || q.concept_tested));
+
+    if (!questions || questions.length === 0 || needsConceptRefresh) {
       const linkedKey = plan.objectives?.find(o => mod.objective?.includes(o.title))?.linkedWeaknessKeys?.[0];
       const weakness  = plan.diagnosis?.weaknesses?.find(w => w.key === linkedKey);
       questions = await generateQuiz({
