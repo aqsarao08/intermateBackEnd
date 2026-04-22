@@ -32,7 +32,7 @@ def generate_quiz(payload: QuizGenerateRequest) -> QuizGenerateResponse:
 
 Context:
 - Category: {payload.category}
-- Target role: {payload.target_role or "software engineer"}
+- Target role: {payload.target_role or "target role"}
 - Mix: {easy_count} easy (foundational), {medium_count} medium (applied), {hard_count} hard (advanced/edge cases)
 
 CRITICAL RULES:
@@ -109,9 +109,9 @@ def _fallback_questions(skill: str, difficulty: str) -> List[QuizQuestion]:
             question=f"Which best describes a core principle of {skill}?",
             options=[
                 f"It is a foundational concept in {skill} that enables structured problem-solving",
-                "It is unrelated to modern software engineering",
-                "It applies only to legacy database systems",
-                "It was removed in recent versions of the standard",
+                "It is unrelated to this professional domain",
+                "It applies only in outdated niche workflows",
+                "It is no longer relevant in current practice",
             ],
             correct_index=0,
             explanation=f"Option A correctly identifies the foundational role of this concept within {skill}.",

@@ -31,6 +31,30 @@ SKILL_TAXONOMY: Dict[str, List[str]] = {
         "hooks", "custom hooks", "ui engineering", "design systems", "data fetching",
         "lazy loading", "code splitting", "form validation", "client-side routing",
     ],
+    "business_operations": [
+        "project management", "stakeholder management", "operations management", "process improvement",
+        "strategic planning", "vendor management", "supply chain", "inventory management",
+        "procurement", "budgeting", "forecasting", "reporting", "documentation",
+    ],
+    "marketing_sales": [
+        "digital marketing", "content marketing", "brand strategy", "market research", "social media marketing",
+        "email marketing", "campaign management", "seo", "sem", "sales", "lead generation",
+        "customer relationship management", "crm", "copywriting", "marketing analytics",
+    ],
+    "finance_analytics": [
+        "financial analysis", "financial modeling", "accounting", "bookkeeping", "auditing", "tax preparation",
+        "budget analysis", "variance analysis", "excel", "power bi", "tableau", "data analysis",
+        "reporting", "forecasting", "kpi tracking",
+    ],
+    "design_creative": [
+        "graphic design", "ui design", "ux design", "wireframing", "prototyping", "figma", "adobe photoshop",
+        "adobe illustrator", "branding", "visual design", "user research", "design thinking",
+    ],
+    "people_admin": [
+        "recruitment", "talent acquisition", "employee relations", "performance management", "onboarding",
+        "training", "hr operations", "policy development", "administration", "scheduling", "customer service",
+        "client communication", "conflict resolution",
+    ],
 }
 
 FLAT_SKILLS: Set[str] = {skill for skills in SKILL_TAXONOMY.values() for skill in skills}
@@ -44,6 +68,45 @@ CASE_SENSITIVE_SKILLS: Set[str] = {"go", "r", "c", "a"}
 _SKILL_PATTERNS: Dict[str, re.Pattern] = {
     skill: re.compile(r"\b" + re.escape(skill) + r"\b", re.IGNORECASE)
     for skill in FLAT_SKILLS
+}
+
+GENERIC_SKILL_PREFIXES = (
+    "experience with",
+    "experience in",
+    "proficiency in",
+    "proficient in",
+    "knowledge of",
+    "skilled in",
+    "expertise in",
+    "background in",
+    "familiarity with",
+    "ability to",
+    "ability in",
+    "strong",
+)
+
+GENERIC_SKILL_SUFFIXES = (
+    "skills",
+    "skill",
+    "experience",
+    "knowledge",
+    "capabilities",
+    "ability",
+)
+
+GENERIC_STOP_PHRASES = {
+    "the role",
+    "this role",
+    "our team",
+    "your team",
+    "the company",
+    "job description",
+    "preferred qualifications",
+    "basic qualifications",
+    "minimum qualifications",
+    "required qualifications",
+    "key responsibilities",
+    "responsibilities include",
 }
 
 
@@ -78,6 +141,40 @@ def categorize_skill(skill: str) -> str:
         if skill in skills:
             return category
     return "other"
+
+
+def extract_generic_skill_candidates(text: str) -> Set[str]:
+    candidates: Set[str] = set()
+    for raw_line in re.split(r"[\n;]", text):
+        line = canonicalize(raw_line)
+        if not line:
+            continue
+
+        segments = re.split(r",|/|\||\band\b|\bor\b", line)
+        for segment in segments:
+            candidate = segment.strip(" -:.")
+            if not candidate:
+                continue
+            for prefix in GENERIC_SKILL_PREFIXES:
+                if candidate.startswith(prefix + " "):
+                    candidate = candidate[len(prefix):].strip()
+            for suffix in GENERIC_SKILL_SUFFIXES:
+                if candidate.endswith(" " + suffix):
+                    candidate = candidate[: -(len(suffix) + 1)].strip()
+
+            candidate = re.sub(r"^(must have|required|preferred|plus|bonus|ability to|responsible for)\s+", "", candidate)
+            candidate = re.sub(r"\s+", " ", candidate).strip(" -:.")
+            words = candidate.split()
+            if not (1 <= len(words) <= 4):
+                continue
+            if candidate in GENERIC_STOP_PHRASES:
+                continue
+            if all(len(word) <= 2 for word in words):
+                continue
+            if not any(ch.isalpha() for ch in candidate):
+                continue
+            candidates.add(candidate)
+    return candidates
 
 
 def extract_skills(text: str) -> List[str]:
@@ -128,6 +225,8 @@ def extract_skills(text: str) -> List[str]:
         candidate = canonicalize(ent.text)
         if candidate in FLAT_SKILLS:
             found.add(candidate)
+
+    found.update(extract_generic_skill_candidates(text))
 
     return sorted(found)
 

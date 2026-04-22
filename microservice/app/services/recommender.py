@@ -2,7 +2,10 @@ from typing import Dict, List
 
 from app.services.skill_extractor import categorize_skill
 
-PROJECTABLE_CATEGORIES = {"frameworks", "cloud_devops", "testing", "domain_skills", "databases"}
+PROJECTABLE_CATEGORIES = {
+    "frameworks", "cloud_devops", "testing", "domain_skills", "databases",
+    "business_operations", "marketing_sales", "finance_analytics", "design_creative", "people_admin",
+}
 SKILL_PROJECT_BLUEPRINTS = {
     "react": {
         "title": "React analytics dashboard",
@@ -63,6 +66,31 @@ SKILL_PROJECT_BLUEPRINTS = {
         "title": "AWS-hosted application",
         "description": "Deploy a real app to AWS with storage, hosting, environment management, and a clear architecture diagram in the README.",
         "skills": ["aws", "deployment", "cloud"],
+    },
+    "digital marketing": {
+        "title": "Multi-channel campaign case study",
+        "description": "Design and run a small campaign plan with audience targeting, channel strategy, creative samples, KPI targets, and a post-campaign review document.",
+        "skills": ["digital marketing", "campaign management", "marketing analytics", "copywriting"],
+    },
+    "financial analysis": {
+        "title": "Financial performance analysis portfolio piece",
+        "description": "Build a spreadsheet or dashboard that analyzes revenue, costs, margins, and forecast scenarios, then summarize findings and recommendations in a short report.",
+        "skills": ["financial analysis", "reporting", "forecasting", "excel"],
+    },
+    "recruitment": {
+        "title": "Recruitment workflow improvement case study",
+        "description": "Design an end-to-end hiring workflow with sourcing stages, screening criteria, interview scorecards, and onboarding handoff documentation.",
+        "skills": ["recruitment", "onboarding", "stakeholder management", "documentation"],
+    },
+    "operations management": {
+        "title": "Operations process optimization case study",
+        "description": "Map a real or simulated workflow, identify bottlenecks, define KPIs, and present a before/after improvement plan with measurable operational gains.",
+        "skills": ["operations management", "process improvement", "reporting", "project management"],
+    },
+    "ux design": {
+        "title": "UX redesign case study",
+        "description": "Create a research-backed redesign with user flows, wireframes, prototypes, and rationale that clearly shows how the design solves usability problems.",
+        "skills": ["ux design", "wireframing", "prototyping", "user research"],
     },
 }
 
@@ -141,9 +169,34 @@ def build_project_suggestions(skill_recommendations: List[Dict[str, object]], ro
             "role_fit": "Full-stack",
         },
         "general": {
-            "title_suffix": "showcase project",
-            "description": "Build a production-style project that demonstrates the missing job requirements with a clean architecture, measurable features, and polished resume-ready outcomes.",
-            "role_fit": "Software Engineering",
+            "title_suffix": "portfolio proof piece",
+            "description": "Create a concrete portfolio artifact, case study, simulation, or project that demonstrates the missing job requirements with measurable outcomes and clear documentation.",
+            "role_fit": "General Professional",
+        },
+        "marketing": {
+            "title_suffix": "marketing case study",
+            "description": "Create a campaign, content, or brand case study with goals, audience, execution steps, metrics, and a short retrospective that proves practical marketing judgment.",
+            "role_fit": "Marketing",
+        },
+        "finance": {
+            "title_suffix": "finance analysis case study",
+            "description": "Create a spreadsheet, dashboard, or reporting case study with assumptions, calculations, findings, and recommendations that show analytical rigor.",
+            "role_fit": "Finance",
+        },
+        "hr": {
+            "title_suffix": "people operations case study",
+            "description": "Create a recruiting, onboarding, or employee-process case study with templates, workflow design, communication examples, and measurable improvement ideas.",
+            "role_fit": "Human Resources",
+        },
+        "operations": {
+            "title_suffix": "operations improvement case study",
+            "description": "Create an operations workflow improvement artifact with process maps, metrics, bottleneck analysis, and a realistic implementation plan.",
+            "role_fit": "Operations",
+        },
+        "design": {
+            "title_suffix": "design case study",
+            "description": "Create a design portfolio case study with research, flows, wireframes, final deliverables, and rationale that ties directly to the target job requirements.",
+            "role_fit": "Design",
         },
     }
     template = role_templates.get(role_focus, role_templates["general"])

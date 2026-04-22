@@ -30,7 +30,7 @@ def infer_match_level(score: int) -> str:
 
 
 def default_summary(matched_keywords: List[str], missing_keywords: List[str]) -> str:
-    strengths = ", ".join(matched_keywords[:3]) or "relevant backend skills"
+    strengths = ", ".join(matched_keywords[:3]) or "relevant role-aligned strengths"
     gap = missing_keywords[0] if missing_keywords else "role-specific depth"
     return f"Strong alignment in {strengths}. The biggest gap is {gap}, so tailor your resume around proven experience and close missing evidence with projects."
 
@@ -50,6 +50,7 @@ def build_specific_improvements(jd: Dict[str, object], skill_recommendations: Li
     required_preview = ", ".join(required_skills[:5]) if required_skills else "the top required stack"
     summary_additions = ", ".join(item["skill"] for item in top_missing if item["action_label"] == "Add now") or ", ".join(item["skill"] for item in top_missing[:2])
     projects_gap = next((item for item in skill_recommendations if item["action_label"] == "Build project first"), None)
+    proof_label = "case study or project" if role_focus in {"marketing", "finance", "hr", "operations", "design", "general"} else "project"
     summary_reference = build_jd_reference_text(jd, "requirements") or build_jd_reference_text(jd, "responsibilities")
     projects_reference = build_jd_reference_text(jd, "responsibilities") or build_jd_reference_text(jd, "requirements")
     skills_reference = build_jd_reference_text(jd, "requirements") or build_jd_reference_text(jd, "preferred")
@@ -70,9 +71,9 @@ def build_specific_improvements(jd: Dict[str, object], skill_recommendations: Li
         f"Promote proven skills first, then keep missing skills like {', '.join(item['skill'] for item in top_missing if item['action_label'] != 'Add now') or 'the top JD gaps'} out of the resume until you can support them honestly."
     )
     projects_text = (
-        f"Your projects section needs at least one project tailored to this job. "
+        f"Your projects or proof-of-work section needs at least one {proof_label} tailored to this job. "
         f"{projects_reference_clause}"
-        f"{'Build a project around ' + projects_gap['skill'] + ' so you can show credible proof in future applications.' if projects_gap else 'Add a project that mirrors the responsibilities and technologies from the JD.'}"
+        f"{'Build a ' + proof_label + ' around ' + projects_gap['skill'] + ' so you can show credible proof in future applications.' if projects_gap else 'Add a concrete proof-of-work example that mirrors the responsibilities and terminology from the JD.'}"
     )
     return [
         {"section": "Summary", "priority": "high", "text": summary_text},

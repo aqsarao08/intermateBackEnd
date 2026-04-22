@@ -81,6 +81,7 @@ Rules:
 - Mention the actual missing skills from the job.
 - Cite the JD language directly inside the reasoning when possible, especially for summary, skills, and project advice.
 - If the role is frontend, be specific about React/frontend expectations like component architecture, state management, API integration, performance, testing, accessibility, and responsive UI when relevant.
+- If the role is not software-focused, adapt the advice to that domain's proof of work, vocabulary, and portfolio expectations instead of defaulting to coding projects.
 - Project suggestions and improvement suggestions must explain what to add and why it matters for this exact JD.
 - Do not give generic phrases like 'tailor your summary' without saying what should be added.
 - For bullet_rewrites, preserve truthfulness and only strengthen wording around already evidenced work.

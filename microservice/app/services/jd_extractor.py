@@ -27,6 +27,27 @@ ROLE_FOCUS_PRESETS = {
         "react", "next.js", "node.js", "express", "rest api", "mongodb",
         "postgresql", "authentication", "docker", "ci/cd", "testing",
     ],
+    "marketing": [
+        "digital marketing", "content marketing", "brand strategy", "market research",
+        "social media marketing", "email marketing", "campaign management", "seo", "sem",
+        "copywriting", "marketing analytics",
+    ],
+    "finance": [
+        "financial analysis", "financial modeling", "accounting", "bookkeeping", "auditing",
+        "budgeting", "forecasting", "variance analysis", "reporting", "excel", "power bi", "tableau",
+    ],
+    "hr": [
+        "recruitment", "talent acquisition", "employee relations", "performance management",
+        "onboarding", "training", "hr operations", "policy development", "stakeholder management",
+    ],
+    "operations": [
+        "operations management", "process improvement", "project management", "vendor management",
+        "supply chain", "inventory management", "procurement", "reporting", "documentation",
+    ],
+    "design": [
+        "graphic design", "ui design", "ux design", "wireframing", "prototyping", "figma",
+        "adobe photoshop", "adobe illustrator", "branding", "visual design", "user research",
+    ],
 }
 
 
@@ -61,6 +82,16 @@ def infer_role_focus(jd_text: str) -> str:
         return "backend"
     if "full stack" in lowered or "fullstack" in lowered:
         return "fullstack"
+    if any(term in lowered for term in ("marketing", "campaign", "seo", "social media", "brand")):
+        return "marketing"
+    if any(term in lowered for term in ("finance", "accounting", "financial", "budget", "forecast")):
+        return "finance"
+    if any(term in lowered for term in ("human resources", "recruitment", "talent acquisition", "employee relations", "hr ")):
+        return "hr"
+    if any(term in lowered for term in ("operations", "procurement", "supply chain", "vendor management", "inventory")):
+        return "operations"
+    if any(term in lowered for term in ("designer", "design", "figma", "wireframe", "prototype", "branding")):
+        return "design"
     return "general"
 
 

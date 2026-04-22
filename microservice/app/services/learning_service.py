@@ -31,6 +31,11 @@ CATEGORY_RULES = {
     "testing": ["jest", "pytest", "testing", "react testing library", "cypress", "playwright", "unit test"],
     "behavioral": ["communication", "leadership", "behavioral", "storytelling", "collaboration"],
     "cs_fundamentals": ["oop", "operating systems", "networking", "dbms", "computer science"],
+    "marketing": ["marketing", "seo", "sem", "campaign", "brand", "content", "social media", "copywriting"],
+    "finance": ["finance", "financial", "accounting", "budget", "forecast", "excel", "power bi", "tableau"],
+    "hr": ["recruitment", "talent acquisition", "employee relations", "onboarding", "training", "hr"],
+    "operations": ["operations", "process improvement", "procurement", "supply chain", "inventory", "vendor"],
+    "design": ["design", "figma", "wireframe", "prototype", "branding", "ux", "ui design", "graphic design"],
 }
 
 SOURCE_WEIGHT_DEFAULTS = {
@@ -58,7 +63,8 @@ def slugify(value: str) -> str:
 
 VALID_CATEGORIES = frozenset(
     ["frontend", "backend", "databases", "dsa", "system_design",
-     "cloud_devops", "testing", "behavioral", "cs_fundamentals", "general"]
+     "cloud_devops", "testing", "behavioral", "cs_fundamentals",
+     "marketing", "finance", "hr", "operations", "design", "general"]
 )
 
 
@@ -74,7 +80,7 @@ def infer_category(skill: str, explicit_category: str | None = None) -> str:
 
 def derive_role_focus(target_role: str, jd_text: str, signals: List[SourceSignalInput]) -> str:
     combined = " ".join([target_role, jd_text] + [signal.skill for signal in signals]).lower()
-    for category in ("frontend", "backend", "cloud_devops", "testing", "databases", "system_design"):
+    for category in ("frontend", "backend", "cloud_devops", "testing", "databases", "system_design", "marketing", "finance", "hr", "operations", "design"):
         if any(keyword in combined for keyword in CATEGORY_RULES.get(category, [])):
             return category
     return "general"
@@ -453,7 +459,7 @@ def _generate_targeted_resources(
         "If unsure of the exact URL, use a YouTube search URL. Return ONLY valid JSON."
     )
 
-    user_prompt = f"""The user is learning "{skill}" for a {role or "software engineer"} role (category: {category}).
+    user_prompt = f"""The user is learning "{skill}" for a {role or "target"} role (category: {category}).
 
 They are SPECIFICALLY WEAK in these sub-concepts:
 {concepts_str}
@@ -534,17 +540,17 @@ def recommend_projects(payload: RecommendProjectsRequest) -> RecommendProjectsRe
     )
 
     system_prompt = (
-        "You are a senior software engineering mentor. Generate practical, buildable project ideas "
-        "that directly target specific skill gaps. Projects must be concrete and completable in 1-3 weeks. "
+        "You are a career mentor. Generate practical, portfolio-ready proof-of-skill ideas "
+        "that directly target specific skill gaps. Ideas must be concrete and completable in 1-3 weeks. "
         "Return ONLY valid JSON."
     )
 
-    user_prompt = f"""The user is preparing for a {payload.role or "software engineer"} role.
+    user_prompt = f"""The user is preparing for a {payload.role or "target"} role.
 
 Their DETECTED WEAK AREAS with specific concept gaps:
 {skills_str}
 
-Job description context: {(payload.jd_text or "")[:400] or "General software engineering role"}
+Job description context: {(payload.jd_text or "")[:400] or "General professional role"}
 
 Generate exactly 3 project ideas. Each project MUST:
 1. Directly address 1-2 of the weak skills/concepts listed above

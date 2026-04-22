@@ -129,6 +129,11 @@ WeaknessCategory = Literal[
     "testing",
     "behavioral",
     "cs_fundamentals",
+    "marketing",
+    "finance",
+    "hr",
+    "operations",
+    "design",
     "general",
 ]
 SignalSourceType = Literal[
