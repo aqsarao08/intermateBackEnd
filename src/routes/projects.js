@@ -8,7 +8,7 @@ import multer from "multer";
 import mongoose from "mongoose";
 import Project from "../models/Project.js";
 import { requireAuth } from "../middleware/auth.js";
-import { analyzeDocuments, analyzeStoredTexts } from "../utils/resumeAnalyzerClient.js";
+import { analyzeDocuments, analyzeStoredTexts, extractJobDescription } from "../utils/resumeAnalyzerClient.js";
 import { awardXP } from "../services/gamification.js";
 
 const router = express.Router();
@@ -19,6 +19,23 @@ const upload = multer({
   fileFilter: (_req, file, cb) => {
     if (file.mimetype === "application/pdf") cb(null, true);
     else cb(new Error("Only PDF files are accepted"));
+  },
+});
+
+const jobDescriptionUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+    if (allowedMimes.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Only PDF and image files (JPG, PNG, GIF, WebP) are accepted"));
   },
 });
 
@@ -352,6 +369,24 @@ router.delete("/:id", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Delete project error:", error);
     return res.status(500).json({ message: "Server error while deleting project" });
+  }
+});
+
+router.post("/extract-job-description", requireAuth, jobDescriptionUpload.single("jobDescriptionFile"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Job description file is required" });
+    }
+
+    const cleanedText = await extractJobDescription(req.file);
+
+    return res.status(200).json({
+      message: "Job description extracted successfully",
+      text: cleanedText,
+    });
+  } catch (error) {
+    console.error("Extract job description error:", error);
+    return res.status(400).json({ message: error.message || "Failed to extract job description" });
   }
 });
 

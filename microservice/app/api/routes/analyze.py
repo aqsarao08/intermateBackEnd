@@ -5,6 +5,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from app.core.config import get_settings
 from app.models.schemas import AnalyzeResponse, AnalyzeTextRequest
 from app.services.analyzer import analyze_resume_against_jd
+from app.services.jd_cleaner import extract_and_clean_job_description
 from app.services.parsers import parse_pdf_bytes
 
 router = APIRouter()
@@ -58,3 +59,30 @@ async def analyze_text(payload: AnalyzeTextRequest):
         parser_used="stored_text",
         jd_parser_used="stored_text",
     )
+
+
+@router.post("/extract-job-description")
+async def extract_job_description(job_description_file: UploadFile = File(...)):
+    """
+    Extract and clean job description text from an uploaded image or PDF.
+    Removes OCR noise, symbols, and irrelevant content.
+    
+    Returns: {"text": "cleaned job description text"}
+    """
+    try:
+        file_bytes = await job_description_file.read()
+        
+        if not file_bytes:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+        
+        cleaned_text = extract_and_clean_job_description(
+            file_bytes=file_bytes,
+            filename=job_description_file.filename or "file.pdf"
+        )
+        
+        return {"text": cleaned_text}
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")

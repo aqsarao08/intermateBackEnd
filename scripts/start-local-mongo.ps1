@@ -1,7 +1,8 @@
 $mongoExe = "C:\Program Files\MongoDB\Server\8.2\bin\mongod.exe"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $mongoRoot = Join-Path $projectRoot "mongo-local"
-$dataDir = Join-Path $mongoRoot "data"
+$legacyDataDir = Join-Path $mongoRoot "data"
+$dataDir = Join-Path $mongoRoot "runtime-data"
 $logDir = Join-Path $mongoRoot "log"
 $logFile = Join-Path $logDir "mongod.log"
 
@@ -12,6 +13,10 @@ if (-not (Test-Path $mongoExe)) {
 
 New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+
+if ((Test-Path $legacyDataDir) -and -not (Test-Path (Join-Path $dataDir "WiredTiger"))) {
+  Write-Host "Using fresh local MongoDB runtime data at $dataDir to avoid locks in the legacy data directory."
+}
 
 $listeningBeforeStart = Get-NetTCPConnection -State Listen -LocalPort 27017 -ErrorAction SilentlyContinue |
   Select-Object -First 1
@@ -30,10 +35,15 @@ $args = @(
 
 Start-Process -FilePath $mongoExe -ArgumentList $args -WindowStyle Hidden
 
-Start-Sleep -Seconds 3
+for ($attempt = 0; $attempt -lt 15; $attempt++) {
+  Start-Sleep -Seconds 1
+  $listening = Get-NetTCPConnection -State Listen -LocalPort 27017 -ErrorAction SilentlyContinue |
+    Select-Object -First 1
 
-$listening = Get-NetTCPConnection -State Listen -LocalPort 27017 -ErrorAction SilentlyContinue |
-  Select-Object -First 1
+  if ($listening) {
+    break
+  }
+}
 
 if (-not $listening) {
   Write-Error "MongoDB did not start. Check $logFile for details."

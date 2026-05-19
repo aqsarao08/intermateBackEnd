@@ -141,3 +141,51 @@ export async function analyzeStoredTexts({ resumeText, jdText }) {
 
   return normalizeAnalysis(data);
 }
+
+export async function extractJobDescription(jobDescriptionFile) {
+  const form = new FormData();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+
+  form.append("job_description_file", jobDescriptionFile.buffer, {
+    filename: jobDescriptionFile.originalname,
+    contentType: jobDescriptionFile.mimetype,
+  });
+
+  const body = form.getBuffer();
+  const headers = {
+    ...form.getHeaders(),
+    "Content-Length": String(body.length),
+  };
+
+  let response;
+  try {
+    response = await fetch(`${ANALYZER_URL}/extract-job-description`, {
+      method: "POST",
+      headers,
+      body,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error?.name === "AbortError") {
+      throw new Error("Job description extraction timed out. Please try again.");
+    }
+    throw error;
+  }
+
+  clearTimeout(timeout);
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(`Extraction service error ${response.status}: ${await response.text().catch(() => "no details")}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(data.detail || data.message || `Job description extraction failed (${response.status})`);
+  }
+
+  return data.text || "";
+}
